@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduMetrics — Indicadores Educacionais</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --cream: #faf8f4;
+  --cream2: #f4f0e8;
+  --cream3: #ede8dd;
+  --sand: #d6cdb8;
+  --sand2: #c4b99a;
+  --ink: #1a1612;
+  --ink2: #2d2820;
+  --ink3: #453e34;
+  --muted: #7a7265;
+  --muted2: #a09485;
+  --accent: #c17b3f;
+  --accent2: #e09550;
+  --green: #3a7a5c;
+  --green2: #4e9e78;
+  --rose: #b85555;
+  --sky: #4a7fa8;
+  --sky2: #6298c0;
+  --lavender: #7a6aa8;
+  --white: #ffffff;
+  --r: 10px;
+  --r2: 16px;
+  --r3: 24px;
+  --sidebar-w: 240px;
+  --topbar-h: 64px;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;overflow-x:hidden;}
+h1,h2,h3,.serif{font-family:'Instrument Serif',serif;}
+.sans{font-family:'Syne',sans-serif;}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--sand);border-radius:2px;}
+
+/* ═══════════════════════════════════════════
+   LANDING
+═══════════════════════════════════════════ */
+#home-screen{
+  min-height:100vh;
+  background:var(--cream);
+  position:relative;
+  overflow:hidden;
+}
+
+.land-bg-shapes{
+  position:absolute;inset:0;pointer-events:none;overflow:hidden;
+}
+.land-blob{
+  position:absolute;border-radius:50%;filter:blur(80px);opacity:.5;
+}
+.land-blob-1{width:600px;height:600px;background:#e8d9c5;top:-200px;right:-100px;}
+.land-blob-2{width:500px;height:500px;background:#d4e3d0;bottom:-150px;left:-80px;}
+.land-blob-3{width:300px;height:300px;background:#d5cce8;top:40%;left:30%;opacity:.3;}
+
+.land-nav{
+  position:relative;z-index:10;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:28px 60px;
+}
+.land-logo{
+  display:flex;align-items:center;gap:10px;
+  font-family:'Syne',sans-serif;font-size:18px;font-weight:700;
+  color:var(--ink);letter-spacing:-.3px;
+}
+.land-logo-mark{
+  width:36px;height:36px;
+  background:var(--ink);
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+}
+.land-logo-mark svg{width:18px;height:18px;color:#fff;}
+.land-nav-links{display:flex;align-items:center;gap:6px;}
+.land-nav-btn{
+  padding:9px 20px;border-radius:var(--r);font-size:13px;font-weight:500;
+  cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:all .2s;
+}
+.land-nav-login{background:var(--ink);color:var(--cream);letter-spacing:.1px;}
+.land-nav-login:hover{background:var(--ink2);}
+.land-nav-public{background:transparent;color:var(--muted);border:1px solid var(--sand);}
+.land-nav-public:hover{background:var(--cream2);color:var(--ink);}
+
+.land-hero{
+  position:relative;z-index:5;
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:60px;align-items:center;
+  padding:40px 60px 60px;
+  max-width:1200px;margin:0 auto;
+}
+
+.land-hero-left{animation:slideUp .8s ease both;}
+.land-hero-right{animation:slideUp .8s .15s ease both;}
+
+@keyframes slideUp{
+  from{opacity:0;transform:translateY(32px);}
+  to{opacity:1;transform:translateY(0);}
+}
+
+.land-eyebrow{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--cream2);border:1px solid var(--cream3);
+  padding:6px 14px;border-radius:99px;margin-bottom:22px;
+}
+.land-eyebrow-dot{width:6px;height:6px;border-radius:50%;background:var(--green2);}
+.land-eyebrow span{font-size:11px;font-weight:600;color:var(--green);letter-spacing:.5px;text-transform:uppercase;font-family:'Syne',sans-serif;}
+
+.land-title{
+  font-size:clamp(44px,5vw,68px);
+  line-height:1.02;letter-spacing:-2px;
+  color:var(--ink);margin-bottom:20px;
+}
+.land-title em{font-style:italic;color:var(--accent);}
+.land-desc{
+  font-size:16px;line-height:1.7;color:var(--muted);
+  max-width:440px;margin-bottom:36px;
+}
+.land-btns{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:48px;}
+.lbtn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:13px 24px;border-radius:var(--r);font-size:14px;font-weight:600;
+  cursor:pointer;border:none;transition:all .2s;font-family:'DM Sans',sans-serif;
+}
+.lbtn-primary{
+  background:var(--ink);color:var(--cream);
+  box-shadow:0 4px 20px rgba(26,22,18,.2);
+}
+.lbtn-primary:hover{background:var(--ink2);transform:translateY(-2px);box-shadow:0 8px 30px rgba(26,22,18,.25);}
+.lbtn-soft{
+  background:var(--white);color:var(--ink);
+  border:1px solid var(--cream3);
+  box-shadow:0 2px 8px rgba(26,22,18,.06);
+}
+.lbtn-soft:hover{background:var(--cream2);border-color:var(--sand);}
+
+.land-trust{
+  display:flex;align-items:center;gap:12px;
+  font-size:12px;color:var(--muted2);
+}
+.land-trust-ava{
+  display:flex;
+}
+.land-trust-ava span{
+  width:28px;height:28px;border-radius:50%;
+  border:2px solid var(--cream);
+  background:var(--cream3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;color:var(--muted);
+  margin-left:-8px;
+  font-family:'Syne',sans-serif;
+}
+.land-trust-ava span:first-child{margin-left:0;}
+
+/* Stats card on right */
+.land-card-stack{
+  position:relative;
+  display:flex;flex-direction:column;gap:16px;
+}
+
+.land-main-card{
+  background:var(--white);
+  border:1px solid var(--cream3);
+  border-radius:var(--r3);
+  padding:28px;
+  box-shadow:0 8px 40px rgba(26,22,18,.08),0 2px 8px rgba(26,22,18,.04);
+}
+.land-card-title{
+  font-family:'Syne',sans-serif;font-size:11px;font-weight:700;
+  color:var(--muted2);text-transform:uppercase;letter-spacing:1px;
+  margin-bottom:20px;
+}
+.land-card-stats{
+  display:grid;grid-template-columns:1fr 1fr;gap:2px;
+  margin-bottom:20px;
+}
+.land-stat-cell{
+  background:var(--cream);border-radius:12px;
+  padding:20px 16px;
+}
+.land-stat-cell:nth-child(1){border-bottom-left-radius:4px;border-top-left-radius:12px;}
+.land-stat-cell:nth-child(2){border-bottom-right-radius:4px;border-top-right-radius:12px;}
+.land-stat-cell:nth-child(3){border-top-left-radius:4px;border-bottom-left-radius:12px;}
+.land-stat-cell:nth-child(4){border-top-right-radius:4px;border-bottom-right-radius:12px;}
+.land-sval{
+  font-family:'Instrument Serif',serif;
+  font-size:38px;line-height:1;color:var(--ink);
+  margin-bottom:4px;
+}
+.land-slab{font-size:11px;color:var(--muted);font-weight:500;}
+.land-sdiff{
+  display:inline-flex;align-items:center;gap:3px;
+  font-size:11px;font-weight:600;margin-top:6px;
+  padding:2px 7px;border-radius:99px;
+}
+.sdiff-up{background:#e8f5ee;color:var(--green);}
+.sdiff-dn{background:#fce8e8;color:var(--rose);}
+
+.land-prog-row{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;
+}
+.land-prog-row span{font-size:12px;color:var(--muted);font-weight:500;}
+.land-prog-row strong{font-size:12px;color:var(--ink);font-weight:600;}
+.land-pbar{height:5px;border-radius:99px;background:var(--cream2);overflow:hidden;margin-bottom:14px;}
+.land-pbar-fill{height:100%;border-radius:99px;}
+
+.land-mini-card{
+  background:var(--white);
+  border:1px solid var(--cream3);
+  border-radius:var(--r2);
+  padding:20px;
+  box-shadow:0 4px 20px rgba(26,22,18,.05);
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;
+}
+.land-mini-item{
+  display:flex;align-items:center;gap:10px;
+}
+.land-mini-icon{
+  width:36px;height:36px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.land-mini-icon svg{width:16px;height:16px;}
+.land-mini-text .val{font-size:16px;font-weight:700;color:var(--ink);font-family:'Syne',sans-serif;}
+.land-mini-text .lbl{font-size:10px;color:var(--muted);margin-top:1px;}
+
+.land-scroll-hint{
+  position:absolute;bottom:32px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  z-index:5;animation:bounce 2s infinite;
+}
+@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(6px);}}
+.land-scroll-hint span{font-size:10px;color:var(--muted2);letter-spacing:1px;text-transform:uppercase;font-family:'Syne',sans-serif;}
+.land-scroll-hint svg{width:16px;height:16px;color:var(--muted2);}
+
+/* ═══════════════════════════════════════════
+   LOGIN
+═══════════════════════════════════════════ */
+#login-screen{
+  display:none;min-height:100vh;
+  align-items:center;justify-content:center;
+  background:var(--cream);
+  position:relative;overflow:hidden;
+}
+.login-left{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:60px;
+  position:relative;z-index:2;
+}
+.login-card{
+  background:var(--white);
+  border:1px solid var(--cream3);
+  border-radius:var(--r3);
+  padding:44px;
+  width:100%;max-width:400px;
+  box-shadow:0 20px 70px rgba(26,22,18,.1);
+  animation:slideUp .5s ease both;
+}
+.login-brand{
+  display:flex;align-items:center;gap:10px;margin-bottom:32px;
+}
+.login-brand-mark{
+  width:40px;height:40px;background:var(--ink);border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+}
+.login-brand-mark svg{width:18px;height:18px;color:var(--cream);}
+.login-brand-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--ink);}
+.login-title{font-size:28px;font-weight:400;letter-spacing:-.5px;margin-bottom:6px;color:var(--ink);}
+.login-sub{font-size:13px;color:var(--muted);margin-bottom:32px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;font-family:'Syne',sans-serif;}
+.field input{
+  width:100%;padding:11px 14px;
+  background:var(--cream);border:1px solid var(--cream3);
+  border-radius:var(--r);color:var(--ink);font-size:14px;outline:none;
+  font-family:'DM Sans',sans-serif;
+  transition:border-color .2s,background .2s;
+}
+.field input:focus{border-color:var(--accent);background:var(--white);}
+.field input::placeholder{color:var(--muted2);}
+.login-btn{
+  width:100%;padding:13px;
+  background:var(--ink);color:var(--cream);
+  border:none;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;
+  font-family:'Syne',sans-serif;letter-spacing:.3px;margin-top:6px;
+  transition:all .2s;
+  box-shadow:0 4px 14px rgba(26,22,18,.2);
+}
+.login-btn:hover{background:var(--ink2);transform:translateY(-1px);}
+.login-hint{
+  background:var(--cream);border:1px solid var(--cream3);
+  border-radius:var(--r);padding:12px 14px;
+  margin-top:18px;font-size:12px;color:var(--muted);
+  line-height:1.7;
+}
+.login-hint strong{color:var(--accent);font-weight:600;}
+.login-back{
+  display:inline-flex;align-items:center;gap:5px;
+  background:none;border:none;cursor:pointer;
+  color:var(--muted);font-size:12px;font-family:'DM Sans',sans-serif;
+  transition:color .2s;margin-bottom:28px;
+}
+.login-back:hover{color:var(--ink);}
+
+/* ═══════════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════════ */
+#app-screen{display:none;min-height:100vh;flex-direction:row;background:var(--cream);}
+.overlay{display:none;position:fixed;inset:0;background:rgba(26,22,18,.4);z-index:99;}
+.overlay.show{display:block;}
+
+/* SIDEBAR */
+.sidebar{
+  width:var(--sidebar-w);min-height:100vh;
+  background:var(--white);
+  border-right:1px solid var(--cream3);
+  display:flex;flex-direction:column;flex-shrink:0;
+  position:relative;z-index:10;transition:transform .3s;
+}
+.sb-top{padding:24px 20px 18px;}
+.sb-brand{
+  display:flex;align-items:center;gap:10px;
+}
+.sb-brand-mark{
+  width:34px;height:34px;background:var(--ink);border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+}
+.sb-brand-mark svg{width:16px;height:16px;color:var(--cream);}
+.sb-brand-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--ink);}
+.sb-divider{height:1px;background:var(--cream3);margin:0 16px;}
+.sb-nav{flex:1;padding:12px 10px;overflow-y:auto;}
+.nav-sect{
+  font-size:9px;font-weight:700;color:var(--muted2);
+  letter-spacing:1.5px;text-transform:uppercase;
+  padding:14px 10px 6px;font-family:'Syne',sans-serif;
+}
+.nav-btn{
+  display:flex;align-items:center;gap:9px;
+  width:100%;padding:9px 12px;border-radius:9px;
+  background:none;border:none;cursor:pointer;
+  color:var(--muted);font-size:13px;font-weight:500;
+  text-align:left;transition:all .15s;margin-bottom:2px;
+  font-family:'DM Sans',sans-serif;
+}
+.nav-btn svg{width:15px;height:15px;flex-shrink:0;opacity:.7;}
+.nav-btn:hover{background:var(--cream);color:var(--ink);}
+.nav-btn:hover svg{opacity:1;}
+.nav-btn.active{
+  background:var(--cream2);color:var(--ink);
+  border:1px solid var(--cream3);
+}
+.nav-btn.active svg{opacity:1;}
+.sb-bottom{padding:14px 16px;border-top:1px solid var(--cream3);}
+.user-row{display:flex;align-items:center;gap:10px;}
+.avatar{
+  width:34px;height:34px;border-radius:50%;
+  background:var(--ink);color:var(--cream);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;flex-shrink:0;
+  font-family:'Syne',sans-serif;
+}
+.user-meta{flex:1;min-width:0;}
+.user-nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);}
+.user-rl{font-size:11px;color:var(--muted);}
+.logout-btn{
+  background:none;border:none;cursor:pointer;
+  color:var(--muted2);padding:4px;border-radius:7px;
+  display:flex;align-items:center;transition:color .2s;
+}
+.logout-btn:hover{color:var(--rose);}
+
+/* MAIN */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{
+  height:var(--topbar-h);padding:0 28px;
+  background:var(--white);border-bottom:1px solid var(--cream3);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;gap:12px;
+}
+.tb-left{display:flex;align-items:center;gap:12px;}
+.tb-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--ink);}
+.tb-right{display:flex;align-items:center;gap:10px;}
+.chip{
+  display:inline-flex;align-items:center;
+  padding:4px 12px;border-radius:99px;
+  font-size:11px;font-weight:600;font-family:'Syne',sans-serif;
+}
+.chip-admin{background:#e8e4f7;color:#5a4a9a;border:1px solid #d0c8ee;}
+.chip-user{background:#e8f5ee;color:var(--green);border:1px solid #c4e5d4;}
+.chip-guest{background:#fdf0e0;color:var(--accent);border:1px solid #f0d8b0;}
+.content{flex:1;padding:28px;overflow-y:auto;}
+.screen{display:none;}
+.screen.active{display:block;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+/* COMMON */
+.page-hd{margin-bottom:24px;}
+.page-hd h2{font-size:22px;font-weight:400;letter-spacing:-.4px;color:var(--ink);}
+.page-hd p{font-size:13px;color:var(--muted);margin-top:3px;}
+
+.card{
+  background:var(--white);border:1px solid var(--cream3);
+  border-radius:var(--r2);padding:22px;margin-bottom:18px;
+}
+.card-hd{
+  display:flex;align-items:center;gap:8px;
+  font-family:'Syne',sans-serif;font-size:13px;font-weight:700;
+  color:var(--ink);margin-bottom:18px;flex-wrap:wrap;
+}
+.card-hd svg{color:var(--accent);width:15px;height:15px;flex-shrink:0;}
+.card-hd-right{margin-left:auto;}
+
+.notify{
+  display:none;align-items:center;gap:8px;
+  padding:10px 14px;border-radius:var(--r);
+  font-size:13px;font-weight:500;margin-bottom:14px;
+}
+.notify.show{display:flex;animation:fadeIn .25s ease;}
+.n-ok{background:#e8f5ee;color:var(--green);border:1px solid #c4e5d4;}
+.n-err{background:#fce8e8;color:var(--rose);border:1px solid #f0c4c4;}
+
+.table-wrap{overflow-x:auto;border-radius:var(--r);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.7px;padding:10px 14px;text-align:left;border-bottom:1px solid var(--cream3);font-family:'Syne',sans-serif;}
+td{padding:11px 14px;border-bottom:1px solid var(--cream2);color:var(--muted);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--cream);color:var(--ink);}
+.td-b{font-weight:600;color:var(--ink);}
+
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 18px;border-radius:var(--r);
+  font-size:13px;font-weight:600;
+  cursor:pointer;border:none;transition:all .15s;
+  font-family:'DM Sans',sans-serif;
+}
+.btn svg{width:14px;height:14px;}
+.btn-primary{background:var(--ink);color:var(--cream);}
+.btn-primary:hover{background:var(--ink2);}
+.btn-ghost{background:var(--cream);color:var(--muted);border:1px solid var(--cream3);}
+.btn-ghost:hover{background:var(--cream2);color:var(--ink);}
+.btn-danger{background:#fce8e8;color:var(--rose);border:1px solid #f0c4c4;}
+.btn-danger:hover{background:#f8d4d4;}
+.btn-success{background:#e8f5ee;color:var(--green);border:1px solid #c4e5d4;}
+.btn-success:hover{background:#d4ecdf;}
+.btn-sm{padding:6px 12px;font-size:12px;}
+
+.flabel{display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;font-family:'Syne',sans-serif;}
+.finput,.fsel{
+  width:100%;padding:10px 13px;
+  background:var(--cream);border:1px solid var(--cream3);
+  border-radius:var(--r);color:var(--ink);font-size:13px;outline:none;
+  font-family:'DM Sans',sans-serif;
+  transition:border-color .2s,background .2s;-webkit-appearance:none;
+}
+.finput:focus,.fsel:focus{border-color:var(--accent);background:var(--white);}
+.finput::placeholder{color:var(--muted2);}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:16px;}
+.fgrid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:16px;}
+
+/* STAT CARDS */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:22px;}
+.stat{
+  background:var(--white);border:1px solid var(--cream3);
+  border-radius:var(--r2);padding:20px;position:relative;overflow:hidden;
+}
+.stat-ico{
+  width:34px;height:34px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:14px;
+}
+.stat-ico svg{width:16px;height:16px;}
+.stat-v{font-family:'Instrument Serif',serif;font-size:30px;font-weight:400;line-height:1;color:var(--ink);}
+.stat-l{font-size:12px;color:var(--muted);margin-top:4px;}
+.stat-d{font-size:11px;font-weight:600;margin-top:6px;}
+.up{color:var(--green);}
+.dn{color:var(--rose);}
+.eq{color:var(--muted2);}
+.c-azure .stat-ico{background:#e6eefa;color:var(--sky);}
+.c-emerald .stat-ico{background:#e8f5ee;color:var(--green);}
+.c-violet .stat-ico{background:#ede8f7;color:var(--lavender);}
+.c-sky .stat-ico{background:#e8f3f9;color:var(--sky2);}
+
+/* STEPPER */
+.stepper{display:flex;border:1px solid var(--cream3);border-radius:var(--r);overflow:hidden;margin-bottom:22px;}
+.stp{flex:1;padding:10px 8px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);background:var(--cream);border-right:1px solid var(--cream3);transition:all .2s;font-family:'Syne',sans-serif;}
+.stp:last-child{border-right:none;}
+.stp.done{background:#e8f5ee;color:var(--green);}
+.stp.active{background:var(--cream2);color:var(--ink);}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;color:var(--muted2);}
+.empty-ico{font-size:32px;opacity:.4;margin-bottom:10px;}
+.empty p{font-size:13px;}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:10px;font-weight:700;letter-spacing:.3px;font-family:'Syne',sans-serif;}
+.b-ant{background:#e6eefa;color:var(--sky);border:1px solid #c4d8f0;}
+.b-atu{background:#e8f5ee;color:var(--green);border:1px solid #c4e5d4;}
+.b-admin{background:#ede8f7;color:var(--lavender);border:1px solid #d8cfee;}
+.b-user{background:#e8f5ee;color:var(--green);border:1px solid #c4e5d4;}
+.b-guest{background:#fdf0e0;color:var(--accent);border:1px solid #f0d8b0;}
+
+.frow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+.frow-lbl{font-size:12px;color:var(--muted);}
+.frow-sel{
+  padding:7px 12px;background:var(--cream);border:1px solid var(--cream3);
+  border-radius:var(--r);color:var(--muted);font-size:12px;outline:none;
+  font-family:'DM Sans',sans-serif;-webkit-appearance:none;
+}
+.frow-sel:focus{border-color:var(--accent);}
+
+/* CHART */
+.chart-wrap{position:relative;width:100%;height:260px;}
+
+/* METRICS GRID */
+.mets{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-bottom:18px;}
+.met{
+  background:var(--cream);border:1px solid var(--cream3);
+  border-radius:var(--r);padding:14px;text-align:center;
+}
+.met-v{font-family:'Instrument Serif',serif;font-size:22px;font-weight:400;color:var(--ink);}
+.met-l{font-size:10px;color:var(--muted);margin-top:3px;font-family:'Syne',sans-serif;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+.met-d{font-size:10px;font-weight:600;margin-top:5px;}
+
+/* RANKING */
+.rank-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--cream2);}
+.rank-row:last-child{border-bottom:none;}
+.rank-n{width:26px;height:26px;border-radius:50%;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;flex-shrink:0;color:var(--muted);}
+.rank-nm{flex:1;font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);}
+.pbar-wrap{width:110px;flex-shrink:0;}
+.pbar-bg{background:var(--cream2);border-radius:99px;height:4px;overflow:hidden;}
+.pbar-fill{height:100%;border-radius:99px;background:var(--ink);transition:width .6s;}
+
+/* HERO INSIDE APP */
+.hero-wrap{
+  background:var(--ink);
+  border-radius:var(--r3);padding:32px;
+  margin-bottom:22px;position:relative;overflow:hidden;
+}
+.hero-wrap::before{
+  content:'';position:absolute;right:-60px;top:-60px;
+  width:260px;height:260px;
+  background:radial-gradient(circle,rgba(214,157,63,.25),transparent 60%);
+  pointer-events:none;
+}
+.hero-wrap h2{font-size:24px;font-weight:400;margin-bottom:8px;color:var(--cream);}
+.hero-wrap h2 em{font-style:italic;color:var(--accent2);}
+.hero-wrap p{font-size:14px;color:var(--muted2);line-height:1.6;max-width:480px;margin-bottom:22px;}
+.hero-btns{display:flex;gap:10px;flex-wrap:wrap;}
+.hero-btn-p{background:var(--cream);color:var(--ink);}
+.hero-btn-p:hover{background:var(--cream2);}
+.hero-btn-g{background:rgba(255,255,255,.08);color:var(--muted2);border:1px solid rgba(255,255,255,.12);}
+.hero-btn-g:hover{background:rgba(255,255,255,.13);color:var(--cream);}
+
+/* ANALYTICS */
+.charts-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(360px,1fr));
+  gap:18px;margin-bottom:18px;
+}
+.chart-card{
+  background:var(--white);border:1px solid var(--cream3);
+  border-radius:var(--r2);padding:28px;
+}
+/* Cabeçalho unificado para todos os chart-cards */
+.chart-card-header{
+  display:flex;align-items:baseline;gap:10px;
+  margin-bottom:20px;
+}
+.chart-card-title{
+  font-family:'Syne',sans-serif;font-size:11px;font-weight:700;
+  color:var(--muted2);text-transform:uppercase;letter-spacing:1.2px;
+  display:flex;align-items:center;gap:8px;
+  white-space:nowrap;
+}
+.chart-card-sub{
+  font-size:11px;color:var(--muted2);line-height:1.4;
+}
+.chart-card .chart-wrap{height:220px;}
+.ch-legend{display:flex;gap:20px;margin-bottom:18px;}
+.ch-leg-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);}
+.ch-leg-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+.mets{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:20px;}
+.met{background:var(--cream);border-radius:var(--r);padding:14px 12px;text-align:center;border:1px solid transparent;transition:border-color .2s;}
+.met:hover{border-color:var(--cream3);}
+.met-v{font-family:'Instrument Serif',serif;font-size:24px;font-weight:400;color:var(--ink);line-height:1;}
+.met-l{font-size:10px;color:var(--muted2);margin-top:5px;font-family:'Syne',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.6px;}
+.met-d{font-size:11px;font-weight:600;margin-top:6px;display:inline-flex;align-items:center;gap:2px;}
+
+/* MOBILE TOGGLE */
+.mob-toggle{display:none;background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;}
+
+@media(max-width:768px){
+  .sidebar{position:fixed;top:0;left:0;z-index:100;transform:translateX(-100%);height:100vh;}
+  .sidebar.open{transform:translateX(0);box-shadow:20px 0 60px rgba(26,22,18,.15);}
+  .mob-toggle{display:flex;}
+  .content{padding:16px;}
+  .charts-grid{grid-template-columns:1fr;}
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .land-hero{grid-template-columns:1fr;gap:30px;}
+  .land-nav{padding:20px 24px;}
+  .land-hero{padding:20px 24px 40px;}
+  .land-hero-right{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     LANDING
+═══════════════════════════════════════════ -->
+<div id="home-screen">
+  <div class="land-bg-shapes">
+    <div class="land-blob land-blob-1"></div>
+    <div class="land-blob land-blob-2"></div>
+    <div class="land-blob land-blob-3"></div>
+  </div>
+
+  <nav class="land-nav">
+    <div class="land-logo">
+      <div class="land-logo-mark">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </div>
+      EduMetrics
+    </div>
+    <div class="land-nav-links">
+      <button class="land-nav-btn land-nav-public" onclick="guestAccess()">Painel público</button>
+      <button class="land-nav-btn land-nav-login" onclick="showLogin()">Entrar →</button>
+    </div>
+  </nav>
+
+  <div class="land-hero">
+    <div class="land-hero-left">
+      <div class="land-eyebrow">
+        <div class="land-eyebrow-dot"></div>
+        <span>Plataforma educacional</span>
+      </div>
+      <div class="land-title serif">
+        Indicadores<br>educacionais<br>em <em>foco.</em>
+      </div>
+      <div class="land-desc">
+        Compare a proficiência de estudantes por escola, nível socioeconômico, cor/raça e sexo. Dados claros para decisões que transformam.
+      </div>
+      <div class="land-btns">
+        <button class="lbtn lbtn-primary" onclick="showLogin()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Acessar o sistema
+        </button>
+        <button class="lbtn lbtn-soft" onclick="guestAccess()">Ver painel demo</button>
+      </div>
+      <div class="land-trust">
+        <div class="land-trust-ava" id="trust-ava"></div>
+        <span id="trust-txt">Dados de <strong>3 escolas</strong> disponíveis</span>
+      </div>
+    </div>
+
+    <div class="land-hero-right">
+      <div class="land-card-stack">
+
+        <div class="land-main-card">
+          <div class="land-card-title">Painel de proficiência — 2024</div>
+          <div class="land-card-stats" id="landing-stat-cells">
+            <div class="land-stat-cell">
+              <div class="land-sval" id="ls-escolas">3</div>
+              <div class="land-slab">Escolas</div>
+            </div>
+            <div class="land-stat-cell">
+              <div class="land-sval" id="ls-alunos">493</div>
+              <div class="land-slab">Estudantes</div>
+            </div>
+            <div class="land-stat-cell">
+              <div class="land-sval">266</div>
+              <div class="land-slab">Profic. média</div>
+              <div class="land-sdiff sdiff-up">▲ +3.2%</div>
+            </div>
+            <div class="land-stat-cell">
+              <div class="land-sval" id="ls-regs">14</div>
+              <div class="land-slab">Registros</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="land-prog-row">
+              <span>E.M. José de Alencar</span>
+              <strong>275</strong>
+            </div>
+            <div class="land-pbar"><div class="land-pbar-fill" style="width:84%;background:var(--accent);"></div></div>
+
+            <div class="land-prog-row">
+              <span>E.E. Dom Pedro II</span>
+              <strong>319</strong>
+            </div>
+            <div class="land-pbar"><div class="land-pbar-fill" style="width:97%;background:var(--green2);"></div></div>
+
+            <div class="land-prog-row">
+              <span>E.M. Anísio Teixeira</span>
+              <strong>244</strong>
+            </div>
+            <div class="land-pbar" style="margin-bottom:0"><div class="land-pbar-fill" style="width:74%;background:var(--sky2);"></div></div>
+          </div>
+        </div>
+
+        <div class="land-mini-card">
+          <div class="land-mini-item">
+            <div class="land-mini-icon" style="background:#e8f5ee;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            </div>
+            <div class="land-mini-text">
+              <div class="val">+4.8%</div>
+              <div class="lbl">Evolução geral</div>
+            </div>
+          </div>
+          <div class="land-mini-item">
+            <div class="land-mini-icon" style="background:#e6eefa;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="land-mini-text">
+              <div class="val">493</div>
+              <div class="lbl">Estudantes</div>
+            </div>
+          </div>
+          <div class="land-mini-item">
+            <div class="land-mini-icon" style="background:#fdf0e0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="land-mini-text">
+              <div class="val">2024</div>
+              <div class="lbl">Ano vigente</div>
+            </div>
+          </div>
+          <div class="land-mini-item">
+            <div class="land-mini-icon" style="background:#ede8f7;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--lavender)" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <div class="land-mini-text">
+              <div class="val">3 dim.</div>
+              <div class="lbl">Indicadores</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="land-scroll-hint">
+    <span>explorar</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     LOGIN
+═══════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="land-bg-shapes">
+    <div class="land-blob land-blob-1"></div>
+    <div class="land-blob land-blob-2" style="opacity:.3"></div>
+  </div>
+  <div class="login-left">
+    <div class="login-card">
+      <button class="login-back" onclick="backToLanding()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Voltar
+      </button>
+      <div class="login-brand">
+        <div class="login-brand-mark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <div class="login-brand-name">EduMetrics</div>
+      </div>
+      <div class="login-title serif">Bem-vindo<br>de volta.</div>
+      <div class="login-sub">Acesse o sistema de indicadores educacionais</div>
+      <div id="ln-notify" class="notify"></div>
+      <div class="field">
+        <label>Login</label>
+        <input id="l-user" placeholder="Seu usuário" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <input id="l-pass" type="password" placeholder="Sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+      </div>
+      <button class="login-btn" onclick="doLogin()">Entrar →</button>
+      <div class="login-hint">
+        <strong>Admin:</strong> admin / admin123 &nbsp;·&nbsp; <strong>Usuário:</strong> maria / 123456
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     APP
+═══════════════════════════════════════════ -->
+<div id="app-screen" style="display:none">
+  <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+  <div class="sidebar" id="sidebar">
+    <div class="sb-top">
+      <div class="sb-brand">
+        <div class="sb-brand-mark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <div class="sb-brand-name">EduMetrics</div>
+      </div>
+    </div>
+    <div class="sb-divider"></div>
+    <nav class="sb-nav" id="sb-nav"></nav>
+    <div class="sb-bottom">
+      <div class="user-row">
+        <div class="avatar" id="user-av">A</div>
+        <div class="user-meta">
+          <div class="user-nm" id="user-nm">Admin</div>
+          <div class="user-rl" id="user-rl">Administrador</div>
+        </div>
+        <button class="logout-btn" onclick="doLogout()" title="Sair">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="tb-left">
+        <button class="mob-toggle" onclick="openSidebar()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="tb-title" id="tb-title">Visão geral</span>
+      </div>
+      <div class="tb-right">
+        <span class="chip" id="role-chip">Admin</span>
+      </div>
+    </div>
+    <div class="content">
+      <div id="scr-home"      class="screen active"></div>
+      <div id="scr-dados"     class="screen"></div>
+      <div id="scr-escolas"   class="screen"></div>
+      <div id="scr-usuarios"  class="screen"></div>
+      <div id="scr-analytics" class="screen"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const NIVEL_ORDER=['Baixo','Médio-baixo','Médio','Médio-alto','Alto'];
+const RACAS=['Branca','Preta','Parda','Amarela','Indígena','Não declarada'];
+const SEXOS=['Feminino','Masculino','Não declarado'];
+
+let S={
+  user:null,charts:{},
+  escolas:['E.M. José de Alencar','E.E. Dom Pedro II','E.M. Anísio Teixeira'],
+  usuarios:[
+    {nome:'Admin Geral',login:'admin',senha:'admin123',role:'admin'},
+    {nome:'Prof. Maria Silva',login:'maria',senha:'123456',role:'user'}
+  ],
+  registros:[
+    {id:1,escola:'E.M. José de Alencar',ano:'ant',socio:'Médio',raca:'Parda',sexo:'Feminino',prof:265,alunos:45},
+    {id:2,escola:'E.M. José de Alencar',ano:'ant',socio:'Baixo',raca:'Preta',sexo:'Masculino',prof:241,alunos:38},
+    {id:3,escola:'E.M. José de Alencar',ano:'ant',socio:'Médio-alto',raca:'Branca',sexo:'Feminino',prof:288,alunos:30},
+    {id:4,escola:'E.M. José de Alencar',ano:'atu',socio:'Médio',raca:'Parda',sexo:'Feminino',prof:278,alunos:45},
+    {id:5,escola:'E.M. José de Alencar',ano:'atu',socio:'Baixo',raca:'Preta',sexo:'Masculino',prof:252,alunos:38},
+    {id:6,escola:'E.M. José de Alencar',ano:'atu',socio:'Médio-alto',raca:'Branca',sexo:'Feminino',prof:295,alunos:30},
+    {id:7,escola:'E.E. Dom Pedro II',ano:'ant',socio:'Alto',raca:'Branca',sexo:'Feminino',prof:312,alunos:52},
+    {id:8,escola:'E.E. Dom Pedro II',ano:'ant',socio:'Médio-alto',raca:'Amarela',sexo:'Masculino',prof:298,alunos:35},
+    {id:9,escola:'E.E. Dom Pedro II',ano:'atu',socio:'Alto',raca:'Branca',sexo:'Feminino',prof:328,alunos:55},
+    {id:10,escola:'E.E. Dom Pedro II',ano:'atu',socio:'Médio-alto',raca:'Amarela',sexo:'Masculino',prof:309,alunos:37},
+    {id:11,escola:'E.M. Anísio Teixeira',ano:'ant',socio:'Baixo',raca:'Parda',sexo:'Feminino',prof:228,alunos:60},
+    {id:12,escola:'E.M. Anísio Teixeira',ano:'ant',socio:'Médio-baixo',raca:'Preta',sexo:'Masculino',prof:238,alunos:55},
+    {id:13,escola:'E.M. Anísio Teixeira',ano:'atu',socio:'Baixo',raca:'Parda',sexo:'Feminino',prof:239,alunos:60},
+    {id:14,escola:'E.M. Anísio Teixeira',ano:'atu',socio:'Médio-baixo',raca:'Preta',sexo:'Masculino',prof:248,alunos:55},
+  ]
+};
+
+const NAV_ADMIN=[
+  {id:'home',label:'Visão geral',icon:'home'},
+  {section:'Gerenciar'},
+  {id:'dados',label:'Inserir dados',icon:'db'},
+  {id:'escolas',label:'Escolas',icon:'school'},
+  {id:'usuarios',label:'Usuários',icon:'users'},
+  {section:'Análise'},
+  {id:'analytics',label:'Gráficos',icon:'chart'},
+];
+const NAV_USER=[
+  {id:'home',label:'Visão geral',icon:'home'},
+  {section:'Análise'},
+  {id:'analytics',label:'Gráficos',icon:'chart'},
+];
+
+const IC={
+  home:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  db:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`,
+  school:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`,
+  users:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  chart:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+  plus:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  trash:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
+  check:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`,
+  ar:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
+  al:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`,
+};
+
+/* AUTH */
+function showLogin(){
+  document.getElementById('home-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+}
+function backToLanding(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('home-screen').style.display='flex';
+}
+function guestAccess(){
+  S.user={nome:'Visitante',login:'guest',role:'guest'};initApp();
+}
+function doLogin(){
+  const u=document.getElementById('l-user').value.trim();
+  const p=document.getElementById('l-pass').value;
+  const found=S.usuarios.find(x=>x.login===u&&x.senha===p);
+  if(!found){notify('ln-notify','Login ou senha incorretos.','err');return;}
+  S.user=found;initApp();
+}
+function doLogout(){
+  S.user=null;S.charts={};
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('home-screen').style.display='flex';
+  renderLandingPills();
+}
+function initApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('home-screen').style.display='none';
+  document.getElementById('app-screen').style.display='flex';
+  const u=S.user;
+  document.getElementById('user-av').textContent=u.nome[0].toUpperCase();
+  document.getElementById('user-nm').textContent=u.nome;
+  document.getElementById('user-rl').textContent=u.role==='admin'?'Administrador':u.role==='guest'?'Visitante':'Usuário';
+  const rc=document.getElementById('role-chip');
+  rc.textContent=u.role==='admin'?'Admin':u.role==='guest'?'Visitante':'Usuário';
+  rc.className='chip chip-'+(u.role==='admin'?'admin':u.role==='guest'?'guest':'user');
+  buildNav();navigate('home');
+}
+
+/* NAV */
+function buildNav(){
+  const nav=S.user.role==='admin'?NAV_ADMIN:NAV_USER;
+  document.getElementById('sb-nav').innerHTML=nav.map(item=>{
+    if(item.section) return `<div class="nav-sect">${item.section}</div>`;
+    return `<button class="nav-btn" id="nav-${item.id}" onclick="navigate('${item.id}')">${IC[item.icon]||''}${item.label}</button>`;
+  }).join('');
+}
+const TITLES={home:'Visão geral',dados:'Inserir dados',escolas:'Gerenciar escolas',usuarios:'Gerenciar usuários',analytics:'Análise comparativa'};
+function navigate(id){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const nb=document.getElementById('nav-'+id);
+  if(nb) nb.classList.add('active');
+  document.getElementById('tb-title').textContent=TITLES[id]||id;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('scr-'+id).classList.add('active');
+  closeSidebar();
+  const fn={home:renderHome,dados:renderDados,escolas:renderEscolas,usuarios:renderUsuarios,analytics:renderAnalytics};
+  if(fn[id]) fn[id]();
+}
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
+
+/* UTILS */
+function notify(id,msg,type){
+  const el=document.getElementById(id);if(!el)return;
+  el.textContent=(type==='ok'?'✓  ':'✗  ')+msg;
+  el.className='notify show n-'+(type||'ok');
+  setTimeout(()=>el.classList.remove('show'),3200);
+}
+function mediaP(regs){
+  if(!regs.length) return null;
+  const tot=regs.reduce((s,r)=>s+r.alunos,0);
+  return tot?regs.reduce((s,r)=>s+r.prof*r.alunos,0)/tot:null;
+}
+function calcMedia(campo,escolaSel){
+  const cats=campo==='socio'?NIVEL_ORDER:campo==='raca'?RACAS:SEXOS;
+  const fil=r=>(!escolaSel||r.escola===escolaSel);
+  const d={ant:[],atu:[]};
+  ['ant','atu'].forEach(a=>{
+    d[a]=cats.map(cat=>{
+      const sub=S.registros.filter(r=>fil(r)&&r[campo]===cat&&r.ano===a);
+      return mediaP(sub);
+    });
+  });
+  const idx=cats.map((_,i)=>d.ant[i]!==null||d.atu[i]!==null?i:-1).filter(i=>i>=0);
+  return{cats:idx.map(i=>cats[i]),ant:idx.map(i=>d.ant[i]),atu:idx.map(i=>d.atu[i])};
+}
+function mkChart(id, cats, ant, atu) {
+  if (S.charts[id]) S.charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+
+  const hasData = cats.length > 0;
+  const labels = hasData ? cats : ['(sem dados)'];
+  const dataAnt = hasData ? ant : [null];
+  const datAtu = hasData ? atu : [null];
+
+  S.charts[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Ano passado',
+          data: dataAnt,
+          backgroundColor: 'rgba(193,123,63,0.18)',
+          borderColor: '#c17b3f',
+          borderWidth: 2,
+          borderRadius: 6,
+          borderSkipped: false,
+        },
+        {
+          label: 'Este ano',
+          data: datAtu,
+          backgroundColor: 'rgba(58,122,92,0.22)',
+          borderColor: '#3a7a5c',
+          borderWidth: 2,
+          borderRadius: 6,
+          borderSkipped: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1612',
+          titleColor: '#faf8f4',
+          bodyColor: '#a09485',
+          padding: 12,
+          cornerRadius: 8,
+          titleFont: { family: "'Syne', sans-serif", size: 11, weight: '700' },
+          bodyFont: { family: "'DM Sans', sans-serif", size: 12 },
+          callbacks: {
+            label: c => `  ${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(1) : '—'}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: false,
+          grid: { color: 'rgba(26,22,18,0.05)', drawBorder: false },
+          border: { display: false },
+          ticks: {
+            color: '#a09485',
+            font: { family: "'Syne', sans-serif", size: 10 },
+            maxTicksLimit: 5,
+          }
+        },
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: {
+            color: '#7a7265',
+            font: { family: "'DM Sans', sans-serif", size: 11 },
+            autoSkip: false,
+            maxRotation: 30,
+          }
+        }
+      },
+      layout: { padding: { top: 4, bottom: 0 } }
+    }
+  });
+}
+
+/* HOME */
+function renderHome(){
+  const atu=S.registros.filter(r=>r.ano==='atu');
+  const ant=S.registros.filter(r=>r.ano==='ant');
+  const ma=mediaP(ant),mb=mediaP(atu);
+  const diff=ma&&mb?(mb-ma).toFixed(1):null;
+  const totalAlunos=S.registros.reduce((s,r)=>s+r.alunos,0);
+  const escs=S.escolas.map(e=>{
+    const ea=S.registros.filter(r=>r.escola===e&&r.ano==='ant');
+    const eb=S.registros.filter(r=>r.escola===e&&r.ano==='atu');
+    const pa=mediaP(ea),pb=mediaP(eb);
+    const d=pa&&pb?pb-pa:null;
+    const tot=S.registros.filter(r=>r.escola===e).reduce((s,r)=>s+r.alunos,0);
+    return{nome:e,pa,pb,d,tot};
+  }).sort((a,b)=>(b.pb||0)-(a.pb||0));
+  const maxP=Math.max(...escs.map(e=>e.pb||0));
+
+  document.getElementById('scr-home').innerHTML=`
+  <div class="hero-wrap">
+    <h2 class="serif">Olá, ${S.user.nome.split(' ')[0]}. <em>Bem-vindo.</em></h2>
+    <p>Acompanhe a proficiência dos estudantes por escola, segmentando por nível socioeconômico, cor/raça e sexo.</p>
+    <div class="hero-btns">
+      ${S.user.role==='admin'?`<button class="btn hero-btn-p" onclick="navigate('dados')">${IC.plus} Inserir dados</button>`:''}
+      <button class="btn hero-btn-g" onclick="navigate('analytics')">${IC.chart} Ver gráficos</button>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat c-azure"><div class="stat-ico">${IC.school}</div><div class="stat-v">${S.escolas.length}</div><div class="stat-l">Escolas</div></div>
+    <div class="stat c-emerald"><div class="stat-ico">${IC.users}</div><div class="stat-v">${totalAlunos.toLocaleString()}</div><div class="stat-l">Estudantes</div></div>
+    <div class="stat c-violet"><div class="stat-ico">${IC.chart}</div><div class="stat-v">${ant.length?ma.toFixed(1):'—'}</div><div class="stat-l">Profic. ano passado</div></div>
+    <div class="stat c-sky"><div class="stat-ico">${IC.chart}</div><div class="stat-v">${atu.length?mb.toFixed(1):'—'}</div><div class="stat-l">Profic. este ano</div>${diff!==null?`<div class="stat-d ${parseFloat(diff)>0?'up':parseFloat(diff)<0?'dn':'eq'}">${parseFloat(diff)>0?'▲ +':'▼ '}${diff}</div>`:''}</div>
+  </div>
+  <div class="card">
+    <div class="card-hd">${IC.school} Ranking — este ano</div>
+    ${escs.length?escs.map((e,i)=>`
+    <div class="rank-row">
+      <div class="rank-n" style="${i===0?'background:#fdf0e0;color:var(--accent);':i===1?'background:#e8f5ee;color:var(--green);':i===2?'background:#e6eefa;color:var(--sky);':''}">${i+1}</div>
+      <div class="rank-nm">${e.nome}</div>
+      <div style="font-size:11px;color:var(--muted2);width:70px;text-align:right;flex-shrink:0">${e.tot} alunos</div>
+      <div class="pbar-wrap">
+        <div class="pbar-bg"><div class="pbar-fill" style="width:${maxP?Math.round((e.pb||0)/maxP*100):0}%;background:${i===0?'var(--accent)':i===1?'var(--green2)':'var(--sky2)'}"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;text-align:right">${e.pb?e.pb.toFixed(1):'—'}</div>
+      </div>
+      ${e.d!==null?`<div class="stat-d ${e.d>0?'up':e.d<0?'dn':'eq'}" style="width:52px;text-align:right;flex-shrink:0;font-size:11px">${e.d>0?'▲ +':'▼ '}${e.d.toFixed(1)}</div>`:'<div style="width:52px"></div>'}
+    </div>`).join(''):'<div class="empty"><div class="empty-ico">📊</div><p>Nenhum dado disponível</p></div>'}
+  </div>`;
+}
+
+/* DADOS */
+let fStep=1;
+function renderDados(){
+  document.getElementById('scr-dados').innerHTML=`
+  <div class="page-hd"><h2 class="serif">Inserir proficiências</h2><p>Registre os indicadores por escola, dimensão e período</p></div>
+  <div id="d-notify" class="notify"></div>
+  <div class="card">
+    <div class="card-hd">${IC.plus} Novo registro</div>
+    <div class="stepper" id="stepper">
+      <div class="stp active">1. Escola e ano</div>
+      <div class="stp">2. Dimensões</div>
+      <div class="stp">3. Proficiência</div>
+    </div>
+    <div id="fs1">
+      <div class="fgrid">
+        <div><label class="flabel">Escola</label><select class="fsel" id="f-escola"><option value="">Selecione...</option>${S.escolas.map(e=>`<option>${e}</option>`).join('')}</select></div>
+        <div><label class="flabel">Ano de referência</label><select class="fsel" id="f-ano"><option value="ant">Ano passado</option><option value="atu">Este ano</option></select></div>
+      </div>
+      <button class="btn btn-primary" onclick="fNext(1)">${IC.ar} Próximo</button>
+    </div>
+    <div id="fs2" style="display:none">
+      <div class="fgrid3">
+        <div><label class="flabel">Nível socioeconômico</label><select class="fsel" id="f-socio"><option value="">Selecione...</option>${NIVEL_ORDER.map(n=>`<option>${n}</option>`).join('')}</select></div>
+        <div><label class="flabel">Cor / raça</label><select class="fsel" id="f-raca"><option value="">Selecione...</option>${RACAS.map(r=>`<option>${r}</option>`).join('')}</select></div>
+        <div><label class="flabel">Sexo</label><select class="fsel" id="f-sexo"><option value="">Selecione...</option>${SEXOS.map(s=>`<option>${s}</option>`).join('')}</select></div>
+      </div>
+      <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="fBack()">${IC.al} Voltar</button><button class="btn btn-primary" onclick="fNext(2)">${IC.ar} Próximo</button></div>
+    </div>
+    <div id="fs3" style="display:none">
+      <div class="fgrid">
+        <div><label class="flabel">Média de proficiência</label><input class="finput" id="f-prof" type="number" min="0" max="1000" step="0.1" placeholder="Ex: 285.5" /></div>
+        <div><label class="flabel">Número de estudantes</label><input class="finput" id="f-alunos" type="number" min="1" placeholder="Ex: 120" /></div>
+      </div>
+      <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="fBack()">${IC.al} Voltar</button><button class="btn btn-success" onclick="salvarReg()">${IC.check} Salvar</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd">${IC.db} Registros<div class="card-hd-right"><select class="frow-sel" id="fil-reg" onchange="atualizarTabReg()"><option value="">Todas escolas</option>${S.escolas.map(e=>`<option>${e}</option>`).join('')}</select></div></div>
+    <div id="tab-reg"></div>
+  </div>`;
+  fStep=1;atualizarTabReg();
+}
+function fNext(s){
+  if(s===1){if(!document.getElementById('f-escola').value){notify('d-notify','Selecione uma escola.','err');return;}fStep=2;setStepper(2);document.getElementById('fs1').style.display='none';document.getElementById('fs2').style.display='block';}
+  else{if(!document.getElementById('f-socio').value||!document.getElementById('f-raca').value||!document.getElementById('f-sexo').value){notify('d-notify','Preencha todos os campos.','err');return;}fStep=3;setStepper(3);document.getElementById('fs2').style.display='none';document.getElementById('fs3').style.display='block';}
+}
+function fBack(){
+  if(fStep===2){fStep=1;setStepper(1);document.getElementById('fs1').style.display='block';document.getElementById('fs2').style.display='none';}
+  else{fStep=2;setStepper(2);document.getElementById('fs2').style.display='block';document.getElementById('fs3').style.display='none';}
+}
+function setStepper(n){document.querySelectorAll('#stepper .stp').forEach((s,i)=>{s.classList.toggle('active',i===n-1);s.classList.toggle('done',i<n-1);});}
+function salvarReg(){
+  const prof=parseFloat(document.getElementById('f-prof').value);
+  const alunos=parseInt(document.getElementById('f-alunos').value);
+  if(isNaN(prof)||isNaN(alunos)||alunos<1){notify('d-notify','Informe valores válidos.','err');return;}
+  S.registros.push({id:Date.now(),escola:document.getElementById('f-escola').value,ano:document.getElementById('f-ano').value,socio:document.getElementById('f-socio').value,raca:document.getElementById('f-raca').value,sexo:document.getElementById('f-sexo').value,prof,alunos});
+  notify('d-notify','Registro salvo!','ok');fStep=1;setStepper(1);
+  ['f-escola','f-socio','f-raca','f-sexo'].forEach(id=>document.getElementById(id).value='');
+  ['f-prof','f-alunos'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fs1').style.display='block';document.getElementById('fs2').style.display='none';document.getElementById('fs3').style.display='none';
+  atualizarTabReg();
+}
+function atualizarTabReg(){
+  const fil=document.getElementById('fil-reg')?.value||'';
+  const reg=S.registros.filter(r=>!fil||r.escola===fil);
+  const el=document.getElementById('tab-reg');if(!el)return;
+  if(!reg.length){el.innerHTML='<div class="empty"><div class="empty-ico">📭</div><p>Nenhum registro</p></div>';return;}
+  el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Escola</th><th>Ano</th><th>Socioec.</th><th>Cor/raça</th><th>Sexo</th><th>Profic.</th><th>Alunos</th><th></th></tr></thead>
+  <tbody>${reg.map(r=>`<tr><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.escola}</td>
+  <td><span class="badge ${r.ano==='ant'?'b-ant':'b-atu'}">${r.ano==='ant'?'Ano ant.':'Este ano'}</span></td>
+  <td>${r.socio}</td><td>${r.raca}</td><td>${r.sexo}</td>
+  <td class="td-b">${r.prof.toFixed(1)}</td><td>${r.alunos}</td>
+  <td><button class="btn btn-sm btn-danger" onclick="delReg(${r.id})">${IC.trash}</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+function delReg(id){S.registros=S.registros.filter(r=>r.id!==id);atualizarTabReg();}
+
+/* ESCOLAS */
+function renderEscolas(){
+  document.getElementById('scr-escolas').innerHTML=`
+  <div class="page-hd"><h2 class="serif">Gerenciar escolas</h2><p>Adicione e remova escolas do sistema</p></div>
+  <div id="e-notify" class="notify"></div>
+  <div class="card">
+    <div class="card-hd">${IC.plus} Adicionar escola</div>
+    <div class="fgrid"><div><label class="flabel">Nome da escola</label><input class="finput" id="e-nome" placeholder="Ex: E.M. João XXIII" /></div></div>
+    <button class="btn btn-primary" onclick="addEscola()">${IC.plus} Adicionar</button>
+  </div>
+  <div class="card">
+    <div class="card-hd">${IC.school} Escolas cadastradas</div>
+    ${S.escolas.length?`<div class="table-wrap"><table><thead><tr><th>Escola</th><th>Registros</th><th>Alunos</th><th></th></tr></thead>
+    <tbody>${S.escolas.map(e=>`<tr><td class="td-b">${e}</td><td>${S.registros.filter(r=>r.escola===e).length}</td><td>${S.registros.filter(r=>r.escola===e).reduce((s,r)=>s+r.alunos,0)}</td><td><button class="btn btn-sm btn-danger" onclick="delEscola('${e.replace(/'/g,"\\'")}')">${IC.trash}</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty"><div class="empty-ico">🏫</div><p>Nenhuma escola cadastrada</p></div>'}
+  </div>`;
+}
+function addEscola(){const n=document.getElementById('e-nome').value.trim();if(!n){notify('e-notify','Informe o nome.','err');return;}if(S.escolas.includes(n)){notify('e-notify','Escola já cadastrada.','err');return;}S.escolas.push(n);document.getElementById('e-nome').value='';notify('e-notify','Escola adicionada!','ok');renderEscolas();}
+function delEscola(nome){S.escolas=S.escolas.filter(e=>e!==nome);S.registros=S.registros.filter(r=>r.escola!==nome);renderEscolas();}
+
+/* USUÁRIOS */
+function renderUsuarios(){
+  document.getElementById('scr-usuarios').innerHTML=`
+  <div class="page-hd"><h2 class="serif">Gerenciar usuários</h2><p>Crie e gerencie acessos ao sistema</p></div>
+  <div id="u-notify" class="notify"></div>
+  <div class="card">
+    <div class="card-hd">${IC.plus} Novo usuário</div>
+    <div class="fgrid">
+      <div><label class="flabel">Nome completo</label><input class="finput" id="u-nome" placeholder="Ex: João da Silva" /></div>
+      <div><label class="flabel">Login</label><input class="finput" id="u-login" placeholder="joao.silva" /></div>
+      <div><label class="flabel">Senha</label><input class="finput" id="u-senha" type="password" placeholder="Mínimo 4 caracteres" /></div>
+      <div><label class="flabel">Perfil</label><select class="fsel" id="u-role"><option value="user">Usuário</option><option value="admin">Administrador</option></select></div>
+    </div>
+    <button class="btn btn-primary" onclick="addUsuario()">${IC.plus} Adicionar</button>
+  </div>
+  <div class="card">
+    <div class="card-hd">${IC.users} Usuários cadastrados</div>
+    <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Login</th><th>Perfil</th><th></th></tr></thead>
+    <tbody>${S.usuarios.map(u=>`<tr><td class="td-b">${u.nome}</td><td>${u.login}</td><td><span class="badge ${u.role==='admin'?'b-admin':'b-user'}">${u.role==='admin'?'Admin':'Usuário'}</span></td><td><button class="btn btn-sm btn-danger" onclick="delUsuario('${u.login}')">${IC.trash}</button></td></tr>`).join('')}</tbody></table></div>
+  </div>`;
+}
+function addUsuario(){const n=document.getElementById('u-nome').value.trim(),l=document.getElementById('u-login').value.trim(),s=document.getElementById('u-senha').value,r=document.getElementById('u-role').value;if(!n||!l||s.length<4){notify('u-notify','Preencha todos os campos (senha ≥ 4 chars).','err');return;}if(S.usuarios.find(u=>u.login===l)){notify('u-notify','Login já em uso.','err');return;}S.usuarios.push({nome:n,login:l,senha:s,role:r});['u-nome','u-login','u-senha'].forEach(id=>document.getElementById(id).value='');notify('u-notify','Usuário adicionado!','ok');renderUsuarios();}
+function delUsuario(login){if(login==='admin'){notify('u-notify','Admin principal não pode ser excluído.','err');return;}S.usuarios=S.usuarios.filter(u=>u.login!==login);renderUsuarios();}
+
+/* ANALYTICS */
+function renderAnalytics() {
+  const subTitulo = 'Proficiência média ponderada por nº de alunos';
+  document.getElementById('scr-analytics').innerHTML = `
+  <div class="page-hd">
+    <h2 class="serif">Análise comparativa</h2>
+    <p>Proficiência por nível socioeconômico, cor/raça e sexo — comparando os dois períodos.</p>
+  </div>
+  <div class="card" style="padding:16px 22px;margin-bottom:22px;">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--muted);font-weight:500;">Filtrar por escola:</span>
+      <select class="frow-sel" id="a-escola" onchange="updateAllCharts()">
+        <option value="">Todas as escolas</option>
+        ${S.escolas.map(e => `<option>${e}</option>`).join('')}
+      </select>
+      <div style="margin-left:auto;display:flex;gap:18px;">
+        <div class="ch-leg-item"><div class="ch-leg-swatch" style="background:#c17b3f;"></div>Ano passado</div>
+        <div class="ch-leg-item"><div class="ch-leg-swatch" style="background:#3a7a5c;"></div>Este ano</div>
+      </div>
+    </div>
+  </div>
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div class="chart-card-title">${IC.chart} Nível socioeconômico</div>
+        <div class="chart-card-sub">${subTitulo}</div>
+      </div>
+      <div id="mets-socio" class="mets"></div>
+      <div class="chart-wrap"><canvas id="ch-socio"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div class="chart-card-title">${IC.chart} Cor / raça</div>
+        <div class="chart-card-sub">${subTitulo}</div>
+      </div>
+      <div id="mets-raca" class="mets"></div>
+      <div class="chart-wrap"><canvas id="ch-raca"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div class="chart-card-title">${IC.chart} Sexo</div>
+        <div class="chart-card-sub">${subTitulo}</div>
+      </div>
+      <div id="mets-sexo" class="mets"></div>
+      <div class="chart-wrap"><canvas id="ch-sexo"></canvas></div>
+    </div>
+  </div>`;
+  updateAllCharts();
+}
+
+function updateAllCharts(){
+  const sel=document.getElementById('a-escola')?.value||'';
+  [{campo:'socio',chartId:'ch-socio',metsId:'mets-socio'},{campo:'raca',chartId:'ch-raca',metsId:'mets-raca'},{campo:'sexo',chartId:'ch-sexo',metsId:'mets-sexo'}]
+  .forEach(({campo,chartId,metsId})=>{
+    const{cats,ant,atu}=calcMedia(campo,sel);
+    const mel=document.getElementById(metsId);
+    if(mel){
+      if(!cats.length){mel.innerHTML='<div class="empty" style="grid-column:1/-1"><p>Sem dados disponíveis.</p></div>';}
+      else{mel.innerHTML=cats.map((cat,i)=>{const va=ant[i],vb=atu[i];const d=va!=null&&vb!=null?(vb-va).toFixed(1):null;return`<div class="met"><div class="met-v">${vb!=null?vb.toFixed(1):'—'}</div><div class="met-l">${cat}</div>${d!=null?`<div class="met-d ${parseFloat(d)>0?'up':parseFloat(d)<0?'dn':'eq'}">${parseFloat(d)>0?'▲ +':'▼ '}${d}</div>`:''}</div>`;}).join('');}
+    }
+    mkChart(chartId,cats,ant,atu);
+  });
+}
+
+/* LANDING PILLS */
+function renderLandingPills(){
+  const tot=S.registros.reduce((s,r)=>s+r.alunos,0);
+  const el=document.getElementById('ls-escolas');if(el)el.textContent=S.escolas.length;
+  const el2=document.getElementById('ls-alunos');if(el2)el2.textContent=tot.toLocaleString();
+  const el3=document.getElementById('ls-regs');if(el3)el3.textContent=S.registros.length;
+  const ta=document.getElementById('trust-txt');
+  if(ta)ta.innerHTML=`Dados de <strong>${S.escolas.length} escolas</strong> disponíveis`;
+  const av=document.getElementById('trust-ava');
+  if(av){
+    const initials=['JA','DP','AT'];
+    const colors=['background:#fdf0e0;color:var(--accent)','background:#e8f5ee;color:var(--green)','background:#e6eefa;color:var(--sky)'];
+    av.innerHTML=initials.map((init,i)=>`<span style="${colors[i]}">${init}</span>`).join('');
+  }
+}
+
+renderLandingPills();
+</script>
+</body>
+</html>
