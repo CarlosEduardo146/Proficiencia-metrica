@@ -258,7 +258,7 @@ tbody tr:hover td{background:var(--cream);color:var(--ink);transition:background
 .frow-sel{padding:7px 12px;background:var(--cream);border:1px solid var(--cream3);border-radius:var(--r);color:var(--muted);font-size:12px;outline:none;font-family:'DM Sans',sans-serif;-webkit-appearance:none;}
 .frow-sel:focus{border-color:var(--accent);}
 .chart-wrap{position:relative;width:100%;height:260px;}
-.mets{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-bottom:18px;}
+.mets{display:grid;grid-template-columns:repeat(auto-fill,minmax(111px,1fr));gap:11px;margin-bottom:19px;}
 .met{background:var(--cream);border:1px solid var(--cream3);border-radius:var(--r);padding:14px;text-align:center;}
 .met-v{font-family:'Instrument Serif',serif;font-size:22px;font-weight:400;color:var(--ink);}
 .met-l{font-size:10px;color:var(--muted);margin-top:3px;font-family:'Syne',sans-serif;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
