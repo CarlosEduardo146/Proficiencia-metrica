@@ -1,4 +1,3 @@
-
 const SUPABASE_URL = 'https://zchglmnohvvpdydmmptl.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjaGdsbW5vaHZ2cGR5ZG1tcHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MjU2NDIsImV4cCI6MjA5NjAwMTY0Mn0.QhzwCQAhFHtMEe4VXlFGZlAD4auBqGAtxzxb673r8jA';
 
@@ -259,9 +258,10 @@ function calcMedia(campo, escolaSel, serieSel, anoSel, componenteSel) {
       return mediaP(sub);
     });
   });
-  const idx = cats.map((_, i) => anos.some(a => d[a][i] !== null) ? i : -1).filter(i => i >= 0);
+  // ALTERAÇÃO: todas as categorias sempre aparecem, mesmo sem dados
+  const idx = cats.map((_, i) => i);
   return {
-    cats: idx.map(i => cats[i]),
+    cats: cats,
     ant:  ANOS[0] ? idx.map(i => d[ANOS[0]]?.[i] ?? null) : idx.map(() => null),
     atu:  ANOS[1] ? idx.map(i => d[ANOS[1]]?.[i] ?? null) : idx.map(() => null),
   };
@@ -289,27 +289,36 @@ const CHART_CFG = {
       padding: 12, cornerRadius: 8,
       titleFont: { family: "'Syne',sans-serif", size: 11, weight: '700' },
       bodyFont:  { family: "'DM Sans',sans-serif", size: 12 },
-      callbacks: { label: c => `  ${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(1) : '—'}` },
+      callbacks: {
+        label: c => {
+          const v = c.parsed.y;
+          const display = (v !== null && v !== undefined && v !== 0) ? v.toFixed(1) : (v === 0 ? '—' : '—');
+          return `  ${c.dataset.label}: ${display}`;
+        }
+      },
     },
   },
   scales: {
-    y: { beginAtZero: false, grid: { color: 'rgba(26,22,18,0.05)', drawBorder: false }, border: { display: false }, ticks: { color: '#a09485', font: { family: "'Syne',sans-serif", size: 10 }, maxTicksLimit: 5 } },
+    y: { beginAtZero: true, grid: { color: 'rgba(26,22,18,0.05)', drawBorder: false }, border: { display: false }, ticks: { color: '#a09485', font: { family: "'Syne',sans-serif", size: 10 }, maxTicksLimit: 5 } },
     x: { grid: { display: false }, border: { display: false }, ticks: { color: '#7a7265', font: { family: "'DM Sans',sans-serif", size: 11 }, autoSkip: false, maxRotation: 30 } },
   },
   layout: { padding: { top: 4, bottom: 0 } },
   animation: { duration: 500, easing: 'easeOutQuart' },
 };
+
 function mkChart(id, cats, ant, atu) {
   if (S.charts[id]) { S.charts[id].destroy(); delete S.charts[id]; }
   const ctx = document.getElementById(id); if (!ctx) return;
   const hasData = cats.length > 0;
+  // ALTERAÇÃO: null vira 0 para renderizar barra zerada
+  const toBar = v => v !== null ? v : 0;
   S.charts[id] = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: hasData ? cats : ['(sem dados)'],
       datasets: [
-        { label: '2024', data: hasData ? ant : [null], backgroundColor: 'rgba(193,123,63,0.18)', borderColor: '#c17b3f', borderWidth: 2, borderRadius: 6, borderSkipped: false },
-        { label: '2025', data: hasData ? atu : [null], backgroundColor: 'rgba(58,122,92,0.22)',  borderColor: '#3a7a5c', borderWidth: 2, borderRadius: 6, borderSkipped: false },
+        { label: '2024', data: hasData ? ant.map(toBar) : [0], backgroundColor: 'rgba(193,123,63,0.18)', borderColor: '#c17b3f', borderWidth: 2, borderRadius: 6, borderSkipped: false },
+        { label: '2025', data: hasData ? atu.map(toBar) : [0], backgroundColor: 'rgba(58,122,92,0.22)',  borderColor: '#3a7a5c', borderWidth: 2, borderRadius: 6, borderSkipped: false },
       ],
     },
     options: CHART_CFG,
@@ -379,9 +388,6 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ═══════════════════════════════════════════════
-//  DADOS — formulário com tabelas inline
-// ═══════════════════════════════════════════════
 let fStep = 1;
 
 function buildDimTable(campo, cats) {
@@ -450,7 +456,6 @@ function renderDados() {
       <div class="stp">2. Distribuição por dimensão</div>
     </div>
 
-    <!-- PASSO 1 -->
     <div id="fs1">
       <div class="fgrid">
         <div>
@@ -501,29 +506,24 @@ function renderDados() {
       <button class="btn btn-primary" onclick="fNext()">${IC.ar} Próximo: distribuição</button>
     </div>
 
-    <!-- PASSO 2 -->
     <div id="fs2" style="display:none">
       <div style="font-size:11px;color:var(--muted2);font-family:'Syne',sans-serif;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">
         Distribuição dos avaliados — linhas em branco serão ignoradas
       </div>
 
       <div class="dims-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
-
         <div>
           <div class="flabel" style="margin-bottom:8px;">Nível socioeconômico</div>
           ${buildDimTable('socio', NIVEL_ORDER)}
         </div>
-
         <div>
           <div class="flabel" style="margin-bottom:8px;">Cor / raça</div>
           ${buildDimTable('raca', RACAS)}
         </div>
-
         <div style="grid-column:1/-1;max-width:420px;">
           <div class="flabel" style="margin-bottom:8px;">Sexo</div>
           ${buildDimTable('sexo', SEXOS)}
         </div>
-
       </div>
 
       <div style="display:flex;gap:8px;">
@@ -533,7 +533,6 @@ function renderDados() {
     </div>
   </div>
 
-  <!-- TABELA DE REGISTROS -->
   <div class="card">
     <div class="card-hd">${IC.db} Registros salvos
       <div class="card-hd-right">
@@ -597,7 +596,6 @@ async function salvarReg() {
 
   const regs = [];
 
-  // Nível socioeconômico
   NIVEL_ORDER.forEach((cat, i) => {
     const prof   = parseFloat(document.getElementById(`socio-prof-${i}`)?.value);
     const alunos = parseInt(document.getElementById(`socio-alunos-${i}`)?.value);
@@ -607,7 +605,6 @@ async function salvarReg() {
     }
   });
 
-  // Cor / raça
   RACAS.forEach((cat, i) => {
     const prof   = parseFloat(document.getElementById(`raca-prof-${i}`)?.value);
     const alunos = parseInt(document.getElementById(`raca-alunos-${i}`)?.value);
@@ -617,7 +614,6 @@ async function salvarReg() {
     }
   });
 
-  // Sexo
   SEXOS.forEach((cat, i) => {
     const prof   = parseFloat(document.getElementById(`sexo-prof-${i}`)?.value);
     const alunos = parseInt(document.getElementById(`sexo-alunos-${i}`)?.value);
@@ -759,7 +755,6 @@ function confirmarDelReg(id) {
   );
 }
 
-// ── ESCOLAS ──
 function renderEscolas() {
   document.getElementById('scr-escolas').innerHTML = `
   <div class="page-hd"><h2 class="serif">Gerenciar escolas</h2><p>Adicione e remova escolas do sistema</p></div>
@@ -844,7 +839,6 @@ async function addEscola() {
   renderEscolas();
 }
 
-// ── USUÁRIOS ──
 function renderUsuarios() {
   const totalUsr    = S.usuarios.length;
   const totalAdmin  = S.usuarios.filter(u => u.role === 'admin').length;
@@ -951,7 +945,6 @@ async function addUsuario() {
   renderUsuarios();
 }
 
-// ── ANALYTICS ──
 function renderAnalytics() {
   const sub = 'Proficiência média ponderada por nº de alunos';
   const escsDisp = scopeEscolas();
