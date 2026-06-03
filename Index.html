@@ -262,6 +262,7 @@ tbody tr:hover td{background:var(--cream);color:var(--ink);transition:background
 .b-guest{background:#fdf0e0;color:var(--accent);border:1px solid #f0d8b0;}
 .b-escola{background:#e8f3f9;color:var(--sky);border:1px solid #c4d8f0;}
 .b-secretaria{background:#f4f0e8;color:var(--muted);border:1px solid var(--cream3);}
+.b-componente{background:#f0eaff;color:#6a4db8;border:1px solid #d8cfee;}
 .frow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
 .frow-sel{padding:7px 12px;background:var(--cream);border:1px solid var(--cream3);border-radius:var(--r);color:var(--muted);font-size:12px;outline:none;font-family:'DM Sans',sans-serif;-webkit-appearance:none;}
 .frow-sel:focus{border-color:var(--accent);}
@@ -624,11 +625,12 @@ if (!SUPABASE_URL.includes('SEU-PROJETO') && !SUPABASE_KEY.includes('SUA-ANON'))
   document.getElementById('config-banner').classList.remove('show');
 }
 
-const NIVEL_ORDER = ['Baixo','Médio-baixo','Médio','Médio-alto','Alto'];
-const RACAS       = ['Branca','Preta','Parda','Amarela','Indígena','Não declarada'];
-const SEXOS       = ['Feminino','Masculino','Não declarado'];
-const ANOS        = ['2024','2025'];
-const SERIES      = ['2º ano','5º ano','9º ano'];
+const NIVEL_ORDER  = ['Baixo','Médio-baixo','Médio','Médio-alto','Alto'];
+const RACAS        = ['Branca','Preta','Parda','Amarela','Indígena','Não declarada'];
+const SEXOS        = ['Feminino','Masculino','Não declarado'];
+const ANOS         = ['2024','2025'];
+const SERIES       = ['2º ano','5º ano','9º ano'];
+const COMPONENTES  = ['Português','Matemática'];
 
 let S = { user: null, charts: {}, escolas: [], registros: [], usuarios: [] };
 
@@ -723,6 +725,7 @@ async function loadAll() {
   S.escolas   = (esc  || []).map(e => e.nome);
   S.registros = (reg  || []).map(r => ({
     id: r.id, escola: r.escola, ano: r.ano, serie: r.serie,
+    componente: r.componente || '',
     socio: r.socio, raca: r.raca, sexo: r.sexo,
     prof: parseFloat(r.prof), alunos: parseInt(r.alunos),
     alunos_previstos: parseInt(r.alunos_previstos) || 0,
@@ -831,15 +834,12 @@ function navigate(id) {
 function openSidebar()  { document.getElementById('sidebar').classList.add('open');    document.getElementById('overlay').classList.add('show'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); }
 
-// ── Usa alunos_avaliados para média ponderada nas dimensões
 function mediaP(regs) {
   if (!regs.length) return null;
   const tot = regs.reduce((s, r) => s + r.alunos, 0);
   return tot ? regs.reduce((s, r) => s + r.prof * r.alunos, 0) / tot : null;
 }
 
-// ── Para totais globais: soma alunos_avaliados únicos por escola/ano/série
-// Agrupamos registros pelo grupo (escola+ano+serie) e somamos alunos_avaliados uma única vez
 function totalAlunosAvaliados(regs) {
   const grupos = new Map();
   regs.forEach(r => {
@@ -862,11 +862,12 @@ function diffTag(d) {
   const v = parseFloat(d);
   return `<div class="stat-d ${v > 0 ? 'up' : v < 0 ? 'dn' : 'eq'}">${v > 0 ? '▲ +' : '▼ '}${d}</div>`;
 }
-function calcMedia(campo, escolaSel, serieSel, anoSel) {
+
+function calcMedia(campo, escolaSel, serieSel, anoSel, componenteSel) {
   const cats = campo === 'socio' ? NIVEL_ORDER : campo === 'raca' ? RACAS : SEXOS;
   const anos = anoSel ? [anoSel] : ANOS;
   const regsEscopados = scopeRegistros(S.registros);
-  const fil  = r => (!escolaSel || r.escola === escolaSel) && (!serieSel || r.serie === serieSel);
+  const fil  = r => (!escolaSel || r.escola === escolaSel) && (!serieSel || r.serie === serieSel) && (!componenteSel || r.componente === componenteSel);
   const d    = {};
   anos.forEach(a => {
     d[a] = cats.map(cat => {
@@ -1012,7 +1013,6 @@ function renderDados() {
   const escsDisp = scopeEscolas();
   const regsScope = scopeRegistros(S.registros);
 
-  // ── Cards de resumo
   const totalRegistros  = regsScope.length;
   const totalPrevistos  = totalAlunosPrevistos(regsScope);
   const totalAvaliados  = totalAlunosAvaliados(regsScope);
@@ -1022,7 +1022,6 @@ function renderDados() {
   document.getElementById('scr-dados').innerHTML = `
   <div class="page-hd"><h2 class="serif">Inserir proficiências</h2><p>Registre os indicadores por escola, dimensão e período</p></div>
 
-  <!-- CARDS DE RESUMO -->
   <div class="stats-row">
     <div class="stat c-azure">
       <div class="stat-ico">${IC.clip}</div>
@@ -1078,9 +1077,15 @@ function renderDados() {
             ${SERIES.map(s => `<option>${s}</option>`).join('')}
           </select>
         </div>
+        <div>
+          <label class="flabel" for="f-componente">Componente curricular</label>
+          <select class="fsel" id="f-componente">
+            <option value="">Selecione...</option>
+            ${COMPONENTES.map(c => `<option>${c}</option>`).join('')}
+          </select>
+        </div>
       </div>
 
-      <!-- Alunos previstos e avaliados no passo 1 -->
       <div class="info-box">
         ${IC.info}
         <span>Informe o total de estudantes da turma selecionada. Os campos das dimensões abaixo representam a <strong>distribuição dos avaliados</strong> por categoria — a soma pode ser diferente do total avaliado, pois um aluno pode aparecer em várias dimensões.</span>
@@ -1157,6 +1162,12 @@ function fNext() {
     toast('Selecione a série.', 'err'); return;
   }
   document.getElementById('f-serie-1').classList.remove('err');
+  const componente = document.getElementById('f-componente').value;
+  if (!componente) {
+    document.getElementById('f-componente').classList.add('err');
+    toast('Selecione o componente curricular.', 'err'); return;
+  }
+  document.getElementById('f-componente').classList.remove('err');
   fStep = 2; setStepper(2);
   document.getElementById('fs1').style.display = 'none';
   document.getElementById('fs2').style.display = 'block';
@@ -1176,9 +1187,10 @@ function setStepper(n) {
 }
 
 async function salvarReg() {
-  const escola   = document.getElementById('f-escola').value;
-  const ano      = document.getElementById('f-ano').value;
-  const serie    = document.getElementById('f-serie-1').value;
+  const escola     = document.getElementById('f-escola').value;
+  const ano        = document.getElementById('f-ano').value;
+  const serie      = document.getElementById('f-serie-1').value;
+  const componente = document.getElementById('f-componente').value || '';
   const previstos  = parseInt(document.getElementById('f-previstos').value) || 0;
   const avaliados  = parseInt(document.getElementById('f-avaliados').value) || 0;
 
@@ -1193,7 +1205,7 @@ async function salvarReg() {
     const prof   = parseFloat(document.getElementById(`socio-prof-${i}`)?.value);
     const alunos = parseInt(document.getElementById(`socio-alunos-${i}`)?.value);
     if (!isNaN(prof) && !isNaN(alunos) && alunos >= 1) {
-      regs.push({ escola, ano, serie, socio: cat, raca: 'Não declarada', sexo: 'Não declarado',
+      regs.push({ escola, ano, serie, componente, socio: cat, raca: 'Não declarada', sexo: 'Não declarado',
                   prof, alunos, alunos_previstos: previstos, alunos_avaliados: avaliados });
     }
   });
@@ -1203,7 +1215,7 @@ async function salvarReg() {
     const prof   = parseFloat(document.getElementById(`raca-prof-${i}`)?.value);
     const alunos = parseInt(document.getElementById(`raca-alunos-${i}`)?.value);
     if (!isNaN(prof) && !isNaN(alunos) && alunos >= 1) {
-      regs.push({ escola, ano, serie, socio: 'Não declarado', raca: cat, sexo: 'Não declarado',
+      regs.push({ escola, ano, serie, componente, socio: 'Não declarado', raca: cat, sexo: 'Não declarado',
                   prof, alunos, alunos_previstos: previstos, alunos_avaliados: avaliados });
     }
   });
@@ -1213,7 +1225,7 @@ async function salvarReg() {
     const prof   = parseFloat(document.getElementById(`sexo-prof-${i}`)?.value);
     const alunos = parseInt(document.getElementById(`sexo-alunos-${i}`)?.value);
     if (!isNaN(prof) && !isNaN(alunos) && alunos >= 1) {
-      regs.push({ escola, ano, serie, socio: 'Não declarado', raca: 'Não declarada', sexo: cat,
+      regs.push({ escola, ano, serie, componente, socio: 'Não declarado', raca: 'Não declarada', sexo: cat,
                   prof, alunos, alunos_previstos: previstos, alunos_avaliados: avaliados });
     }
   });
@@ -1234,6 +1246,7 @@ async function salvarReg() {
 
   (data || []).forEach(r => S.registros.unshift({
     id: r.id, escola: r.escola, ano: r.ano, serie: r.serie,
+    componente: r.componente || '',
     socio: r.socio, raca: r.raca, sexo: r.sexo,
     prof: parseFloat(r.prof), alunos: parseInt(r.alunos),
     alunos_previstos: parseInt(r.alunos_previstos) || 0,
@@ -1242,14 +1255,14 @@ async function salvarReg() {
 
   toast(`${regs.length} registro${regs.length !== 1 ? 's' : ''} salvo${regs.length !== 1 ? 's' : ''} com sucesso!`, 'ok');
 
-  // Resetar
   fStep = 1; setStepper(1);
   document.getElementById('fs1').style.display = 'block';
   document.getElementById('fs2').style.display = 'none';
-  document.getElementById('f-escola').value    = '';
-  document.getElementById('f-previstos').value = '';
-  document.getElementById('f-avaliados').value = '';
-  document.getElementById('f-serie-1').value   = '';
+  document.getElementById('f-escola').value      = '';
+  document.getElementById('f-previstos').value   = '';
+  document.getElementById('f-avaliados').value   = '';
+  document.getElementById('f-serie-1').value     = '';
+  document.getElementById('f-componente').value  = '';
   renderDados();
 }
 
@@ -1259,10 +1272,10 @@ function atualizarTabReg() {
 
   const gruposMap = new Map();
   regsAll.forEach(r => {
-    const key = `${r.escola}||${r.ano}||${r.serie}`;
+    const key = `${r.escola}||${r.ano}||${r.serie}||${r.componente}`;
     if (!gruposMap.has(key)) {
       gruposMap.set(key, {
-        escola: r.escola, ano: r.ano, serie: r.serie,
+        escola: r.escola, ano: r.ano, serie: r.serie, componente: r.componente || '',
         alunos_previstos: r.alunos_previstos, alunos_avaliados: r.alunos_avaliados,
         ids: [], count: 0,
       });
@@ -1281,7 +1294,7 @@ function atualizarTabReg() {
   const grupos = Array.from(gruposMap.values());
   el.innerHTML = `<div class="table-wrap"><table>
     <thead><tr>
-      <th>Escola</th><th>Ano</th><th>Série</th>
+      <th>Escola</th><th>Ano</th><th>Série</th><th>Componente</th>
       <th>Previstos</th><th>Avaliados</th><th>Cobertura</th>
       <th>Dimensões</th><th></th>
     </tr></thead>
@@ -1294,6 +1307,7 @@ function atualizarTabReg() {
         <td class="td-b" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(g.escola)}">${escHtml(g.escola)}</td>
         <td><span class="badge b-${g.ano}">${g.ano}</span></td>
         <td>${escHtml(g.serie || '—')}</td>
+        <td>${g.componente ? `<span class="badge b-componente">${escHtml(g.componente)}</span>` : '<span style="color:var(--muted2);font-size:11px">—</span>'}</td>
         <td>${prev ? prev.toLocaleString('pt-BR') : '<span style="color:var(--muted2)">—</span>'}</td>
         <td class="td-b">${aval ? aval.toLocaleString('pt-BR') : '<span style="color:var(--muted2)">—</span>'}</td>
         <td>${pct !== null ? `<span class="cob-badge ${cls}">${pct}%</span>` : '<span style="color:var(--muted2);font-size:11px">—</span>'}</td>
@@ -1303,18 +1317,19 @@ function atualizarTabReg() {
     }).join('')}
     </tbody></table></div>`;
 
-  // ← event delegation: evita problema com onclick inline e IDs especiais
   el.querySelectorAll('.del-grupo-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const g = grupos[parseInt(btn.dataset.idx)];
-      confirmarDelGrupo(g.ids, g.escola, g.ano, g.serie);
+      confirmarDelGrupo(g.ids, g.escola, g.ano, g.serie, g.componente);
     });
   });
 }
-function confirmarDelGrupo(ids, escola, ano, serie) {
+
+function confirmarDelGrupo(ids, escola, ano, serie, componente) {
+  const compLabel = componente ? ` — ${componente}` : '';
   openConfirmModal(
     'Excluir grupo de registros?',
-    `Remover todos os registros de <strong>${escHtml(escola)}</strong> — ${ano}, ${serie}?`,
+    `Remover todos os registros de <strong>${escHtml(escola)}</strong> — ${ano}, ${serie}${escHtml(compLabel)}?`,
     `⚠ Isso excluirá ${ids.length} linha${ids.length !== 1 ? 's' : ''} de dimensões vinculadas.`,
     async () => {
       const btn = document.getElementById('cm-confirm-btn');
@@ -1567,6 +1582,12 @@ function renderAnalytics() {
         </select>
       </div>
       <div class="filter-bar-item">
+        <label for="a-componente">Componente</label>
+        <select class="frow-sel" id="a-componente" onchange="updateAllCharts()">
+          <option value="">Todos</option>${COMPONENTES.map(c => `<option>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="filter-bar-item">
         <label for="a-ano">Ano</label>
         <select class="frow-sel" id="a-ano" onchange="updateAllCharts()">
           <option value="">2024 e 2025</option>${ANOS.map(a => `<option>${a}</option>`).join('')}
@@ -1599,15 +1620,16 @@ function renderAnalytics() {
 }
 
 function updateAllCharts(forceEscola) {
-  const escola = forceEscola !== undefined ? forceEscola : (document.getElementById('a-escola')?.value || '');
-  const serie  = document.getElementById('a-serie')?.value  || '';
-  const ano    = document.getElementById('a-ano')?.value    || '';
+  const escola     = forceEscola !== undefined ? forceEscola : (document.getElementById('a-escola')?.value || '');
+  const serie      = document.getElementById('a-serie')?.value      || '';
+  const componente = document.getElementById('a-componente')?.value || '';
+  const ano        = document.getElementById('a-ano')?.value        || '';
   [
     { campo: 'socio', chartId: 'ch-socio', metsId: 'mets-socio' },
     { campo: 'raca',  chartId: 'ch-raca',  metsId: 'mets-raca'  },
     { campo: 'sexo',  chartId: 'ch-sexo',  metsId: 'mets-sexo'  },
   ].forEach(({ campo, chartId, metsId }) => {
-    const { cats, ant, atu } = calcMedia(campo, escola, serie, ano);
+    const { cats, ant, atu } = calcMedia(campo, escola, serie, ano, componente);
     const mel = document.getElementById(metsId);
     if (mel) {
       mel.innerHTML = cats.length
@@ -1627,13 +1649,15 @@ function updateAllCharts(forceEscola) {
 }
 
 function exportPDF() {
-  const escola = document.getElementById('a-escola')?.value || '';
-  const serie  = document.getElementById('a-serie')?.value  || '';
-  const ano    = document.getElementById('a-ano')?.value    || '';
+  const escola     = document.getElementById('a-escola')?.value     || '';
+  const serie      = document.getElementById('a-serie')?.value      || '';
+  const componente = document.getElementById('a-componente')?.value || '';
+  const ano        = document.getElementById('a-ano')?.value        || '';
   const parts  = [];
-  if (escola) parts.push('Escola: ' + escola);
-  if (serie)  parts.push('Série: ' + serie);
-  if (ano)    parts.push('Ano: ' + ano);
+  if (escola)     parts.push('Escola: ' + escola);
+  if (serie)      parts.push('Série: ' + serie);
+  if (componente) parts.push('Componente: ' + componente);
+  if (ano)        parts.push('Ano: ' + ano);
   const sub = document.getElementById('print-subtitle');
   if (sub) sub.textContent = 'Proficiência por nível socioeconômico, cor/raça e sexo' + (parts.length ? ' — ' + parts.join(' · ') : ' — 2024 vs 2025');
   window.print();
@@ -1671,7 +1695,6 @@ async function renderLandingData() {
       alunos_avaliados: parseInt(r.alunos_avaliados) || 0,
     }));
 
-    // total de previstos e avaliados (sem duplicar por grupo)
     const gruposPrev = new Map();
     const gruposAval = new Map();
     registros.forEach(r => {
