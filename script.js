@@ -17,6 +17,7 @@ const COMPONENTES  = ['Português','Matemática'];
 
 let S = { user: null, charts: {}, escolas: [], registros: [], usuarios: [] };
 
+// ── HELPERS DE ESCOPO ──
 function userEscola() { return S.user?.escola || null; }
 function scopeRegistros(regs) {
   const esc = userEscola();
@@ -29,8 +30,15 @@ function scopeEscolas() {
   return S.escolas.filter(e => e === esc);
 }
 
+// ── FIX: normaliza componente — null/"" → "" para comparação uniforme ──
+function normComp(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).trim();
+}
+
 const NAV_ADMIN = [
-  {id:'home',    label:'Visão geral',    icon:'home'},
+  {id:'home',    label:'Visão geral',    icon:'home'},  
+  {id:'consulta',label:'Consulta',      icon:'search'},
   {section:'Gerenciar'},
   {id:'dados',    label:'Inserir dados',  icon:'db'},
   {id:'escolas',  label:'Escolas',        icon:'school'},
@@ -40,6 +48,7 @@ const NAV_ADMIN = [
 ];
 const NAV_USER = [
   {id:'home',     label:'Visão geral',   icon:'home'},
+  {id:'consulta', label:'Consulta',      icon:'search'},
   {section:'Análise'},
   {id:'analytics',label:'Gráficos',      icon:'chart'},
 ];
@@ -60,9 +69,11 @@ const IC = {
   eyeOff:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`,
   lock:  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
   pdf:   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>`,
+  ppt:   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9.5 15.5h5"/><path d="M9.5 12.5h4"/><path d="M9.5 9.5h2.5"/></svg>`,
   info:  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
   target:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
   clip:  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`,
+  search:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
 };
 
 function showLoading(msg = 'Carregando...') {
@@ -97,26 +108,52 @@ function togglePw(inputId, btn) {
 
 async function loadAll() {
   const escFiltro = userEscola();
-  let regQuery = sb.from('registros').select('*').order('created_at', { ascending: false });
-  if (escFiltro) regQuery = regQuery.eq('escola', escFiltro);
-  const [{ data: esc, error: e1 }, { data: reg, error: e2 }, { data: usr, error: e3 }] = await Promise.all([
+
+  // Busca em lotes de 1000 até trazer todos os registros
+  async function fetchAllRegistros() {
+    const PAGE = 1000;
+    let all = [];
+    let from = 0;
+    while (true) {
+      let q = sb.from('registros').select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (escFiltro) q = q.eq('escola', escFiltro);
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      if (!data || data.length === 0) break;
+      all = all.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    return all;
+  }
+
+  const [{ data: esc, error: e1 }, { data: usr, error: e3 }, reg] = await Promise.all([
     sb.from('escolas').select('nome').order('nome'),
-    regQuery,
     sb.from('usuarios').select('id,nome,login,role,escola'),
+    fetchAllRegistros(),
   ]);
-  if (e1 || e2 || e3) throw new Error((e1||e2||e3).message);
-  S.escolas   = (esc  || []).map(e => e.nome);
-  S.registros = (reg  || []).map(r => ({
-    id: r.id, escola: r.escola, ano: r.ano, serie: r.serie,
-    componente: r.componente || '',
-    socio: r.socio, raca: r.raca, sexo: r.sexo,
-    prof: parseFloat(r.prof), alunos: parseInt(r.alunos),
+
+  if (e1 || e3) throw new Error((e1 || e3).message);
+
+  S.escolas   = (esc || []).map(e => e.nome);
+  S.registros = reg.map(r => ({
+    id: r.id,
+    escola: r.escola,
+    ano: r.ano,
+    serie: r.serie,
+    componente: normComp(r.componente),
+    socio: r.socio,
+    raca: r.raca,
+    sexo: r.sexo,
+    prof: parseFloat(r.prof),
+    alunos: parseInt(r.alunos),
     alunos_previstos: parseInt(r.alunos_previstos) || 0,
     alunos_avaliados: parseInt(r.alunos_avaliados) || 0,
   }));
-  S.usuarios  = usr || [];
+  S.usuarios = usr || [];
 }
-
 function showLogin() {
   document.getElementById('home-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
@@ -200,7 +237,7 @@ function buildNav() {
 }
 
 const TITLES = {
-  home: 'Visão geral', dados: 'Inserir dados',
+  home: 'Visão geral', consulta: 'Consulta', dados: 'Inserir dados',
   escolas: 'Gerenciar escolas', usuarios: 'Gerenciar usuários', analytics: 'Análise comparativa',
 };
 function navigate(id) {
@@ -211,7 +248,7 @@ function navigate(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('scr-' + id).classList.add('active');
   closeSidebar();
-  const fn = { home: renderHome, dados: renderDados, escolas: renderEscolas, usuarios: renderUsuarios, analytics: renderAnalytics };
+  const fn = { home: renderHome, consulta: renderConsulta, dados: renderDados, escolas: renderEscolas, usuarios: renderUsuarios, analytics: renderAnalytics };
   if (fn[id]) fn[id]();
 }
 function openSidebar()  { document.getElementById('sidebar').classList.add('open');    document.getElementById('overlay').classList.add('show'); }
@@ -246,24 +283,40 @@ function diffTag(d) {
   return `<div class="stat-d ${v > 0 ? 'up' : v < 0 ? 'dn' : 'eq'}">${v > 0 ? '▲ +' : '▼ '}${d}</div>`;
 }
 
+// ── FIX PRINCIPAL: calcMedia com filtro de componente corrigido ──
 function calcMedia(campo, escolaSel, serieSel, anoSel, componenteSel) {
   const cats = campo === 'socio' ? NIVEL_ORDER : campo === 'raca' ? RACAS : SEXOS;
   const anos = anoSel ? [anoSel] : ANOS;
   const regsEscopados = scopeRegistros(S.registros);
-  const fil  = r => (!escolaSel || r.escola === escolaSel) && (!serieSel || r.serie === serieSel) && (!componenteSel || r.componente === componenteSel);
-  const d    = {};
+
+  // FIX: normaliza o componente selecionado para comparação
+  const compNorm = normComp(componenteSel);
+
+  const fil = r =>
+    (!escolaSel      || r.escola === escolaSel) &&
+    (!serieSel       || r.serie  === serieSel)  &&
+    // FIX: quando compNorm é "" (todos), não filtra; quando tem valor, compara normalizado
+    (!compNorm       || normComp(r.componente) === compNorm);
+
+  const d = {};
+  const alunosD = {};
   anos.forEach(a => {
     d[a] = cats.map(cat => {
       const sub = regsEscopados.filter(r => fil(r) && r[campo] === cat && r.ano === a);
       return mediaP(sub);
     });
+    alunosD[a] = cats.map(cat => {
+      const sub = regsEscopados.filter(r => fil(r) && r[campo] === cat && r.ano === a);
+      return sub.reduce((s, r) => s + r.alunos, 0);
+    });
   });
-  // ALTERAÇÃO: todas as categorias sempre aparecem, mesmo sem dados
   const idx = cats.map((_, i) => i);
   return {
-    cats: cats,
-    ant:  ANOS[0] ? idx.map(i => d[ANOS[0]]?.[i] ?? null) : idx.map(() => null),
-    atu:  ANOS[1] ? idx.map(i => d[ANOS[1]]?.[i] ?? null) : idx.map(() => null),
+    cats,
+    ant:       ANOS[0] ? idx.map(i => d[ANOS[0]]?.[i] ?? null)     : idx.map(() => null),
+    atu:       ANOS[1] ? idx.map(i => d[ANOS[1]]?.[i] ?? null)     : idx.map(() => null),
+    alunosAnt: ANOS[0] ? idx.map(i => alunosD[ANOS[0]]?.[i] ?? 0) : idx.map(() => 0),
+    alunosAtu: ANOS[1] ? idx.map(i => alunosD[ANOS[1]]?.[i] ?? 0) : idx.map(() => 0),
   };
 }
 
@@ -277,9 +330,7 @@ const CHART_CFG = {
       labels: {
         usePointStyle: true,
         pointStyle: 'rectRounded',
-        boxWidth: 10,
-        boxHeight: 10,
-        padding: 16,
+        boxWidth: 10, boxHeight: 10, padding: 16,
         color: '#7a7265',
         font: { family: "'Syne',sans-serif", size: 11, weight: '600' },
       },
@@ -292,7 +343,7 @@ const CHART_CFG = {
       callbacks: {
         label: c => {
           const v = c.parsed.y;
-          const display = (v !== null && v !== undefined && v !== 0) ? v.toFixed(1) : (v === 0 ? '—' : '—');
+          const display = (v !== null && v !== undefined && v !== 0) ? v.toFixed(1) : '—';
           return `  ${c.dataset.label}: ${display}`;
         }
       },
@@ -310,7 +361,6 @@ function mkChart(id, cats, ant, atu) {
   if (S.charts[id]) { S.charts[id].destroy(); delete S.charts[id]; }
   const ctx = document.getElementById(id); if (!ctx) return;
   const hasData = cats.length > 0;
-  // ALTERAÇÃO: null vira 0 para renderizar barra zerada
   const toBar = v => v !== null ? v : 0;
   S.charts[id] = new Chart(ctx, {
     type: 'bar',
@@ -323,6 +373,33 @@ function mkChart(id, cats, ant, atu) {
     },
     options: CHART_CFG,
   });
+}
+
+function renderStudentSummary(containerId, cats, alunosAnt, alunosAtu) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const totalAnt = alunosAnt.reduce((s, v) => s + v, 0);
+  const totalAtu = alunosAtu.reduce((s, v) => s + v, 0);
+  if (totalAnt === 0 && totalAtu === 0) {
+    el.innerHTML = '<span style="font-size:11px;color:var(--muted2);">Sem dados de estudantes para os filtros selecionados.</span>';
+    return;
+  }
+  const colors2024 = '#c17b3f';
+  const colors2025 = '#3a7a5c';
+  el.innerHTML = cats.map((cat, i) => {
+    const a = alunosAnt[i] || 0;
+    const b = alunosAtu[i] || 0;
+    const pctA = totalAnt > 0 ? Math.round(a / totalAnt * 100) : 0;
+    const pctB = totalAtu > 0 ? Math.round(b / totalAtu * 100) : 0;
+    const partes = [];
+    if (a > 0) partes.push(`<span style="color:${colors2024};font-weight:700;">${a.toLocaleString('pt-BR')}</span><span style="color:var(--muted2);font-size:10px;"> (${pctA}%) 2024</span>`);
+    if (b > 0) partes.push(`<span style="color:${colors2025};font-weight:700;">${b.toLocaleString('pt-BR')}</span><span style="color:var(--muted2);font-size:10px;"> (${pctB}%) 2025</span>`);
+    if (partes.length === 0) return '';
+    return `<div class="chart-stu-item">
+      <div class="chart-stu-name" style="margin-right:4px;">${escHtml(cat)}:</div>
+      ${partes.join('<span style="color:var(--cream3);margin:0 4px;">·</span>')}
+    </div>`;
+  }).filter(Boolean).join('');
 }
 
 function cobBadge(prev, aval) {
@@ -359,6 +436,7 @@ function renderHome() {
     <p>Acompanhe a proficiência dos estudantes por escola, segmentando por nível socioeconômico, cor/raça e sexo.</p>
     <div class="hero-btns">
       ${S.user.role === 'admin' ? `<button class="btn hero-btn-p" onclick="navigate('dados')">${IC.plus} Inserir dados</button>` : ''}
+      <button class="btn hero-btn-g" onclick="navigate('consulta')">${IC.search} Consultar dados</button>
       <button class="btn hero-btn-g" onclick="navigate('analytics')">${IC.chart} Ver gráficos</button>
     </div>
   </div>
@@ -382,6 +460,110 @@ function renderHome() {
       ${e.d !== null ? `<div class="stat-d ${e.d > 0 ? 'up' : e.d < 0 ? 'dn' : 'eq'}" style="width:52px;text-align:right;flex-shrink:0;font-size:11px">${e.d > 0 ? '▲ +' : '▼ '}${e.d.toFixed(1)}</div>` : '<div style="width:52px"></div>'}
     </div>`).join('') : `<div class="empty"><div class="empty-ico">📊</div><p>Nenhum dado disponível</p></div>`}
   </div>`;
+}
+
+function renderConsulta() {
+  const escs = scopeEscolas();
+  document.getElementById('scr-consulta').innerHTML = `
+  <div class="page-hd"><h2 class="serif">Consulta de registros</h2><p>Localize registros de proficiência por escola, ano, série, componente e dimensões.</p></div>
+
+  <div class="query-panel">
+    <div class="query-panel-hd">${IC.search} Consulta de dados</div>
+    <div class="query-row">
+      <div class="query-field">
+        <label>Escola</label>
+        <select class="query-input" id="q-escola">
+          <option value="">Todas as escolas</option>
+          ${escs.map(e => `<option>${escHtml(e)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="query-field">
+        <label>Série</label>
+        <select class="query-input" id="q-serie">
+          <option value="">Todas as séries</option>
+          ${SERIES.map(s => `<option>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="query-field">
+        <label>Componente</label>
+        <select class="query-input" id="q-componente">
+          <option value="">Todos</option>
+          ${COMPONENTES.map(c => `<option>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="query-field">
+        <label>Ano</label>
+        <select class="query-input" id="q-ano">
+          <option value="">Todos os anos</option>
+          ${ANOS.map(a => `<option>${a}</option>`).join('')}
+        </select>
+      </div>
+      <div class="query-field">
+        <label>Dimensão</label>
+        <select class="query-input" id="q-dimensao">
+          <option value="">Todas</option>
+          <option value="socio">Nível socioeconômico</option>
+          <option value="raca">Cor / raça</option>
+          <option value="sexo">Sexo</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-shrink:0;">
+        <button class="query-btn" onclick="runQuery()">${IC.search} Consultar</button>
+        <button class="query-clear" onclick="clearQuery()">Limpar</button>
+      </div>
+    </div>
+    <div class="query-result-bar" id="q-result-bar">
+      ${IC.check}
+      <span id="q-result-txt"></span>
+    </div>
+    <div class="query-table-wrap" id="q-table-wrap"></div>
+  </div>`;
+}
+
+function atualizarConsulta() {
+  const escola = document.getElementById('c-escola')?.value || '';
+  const ano = document.getElementById('c-ano')?.value || '';
+  const serie = document.getElementById('c-serie')?.value || '';
+  const componente = document.getElementById('c-componente')?.value || '';
+  const socio = document.getElementById('c-socio')?.value || '';
+  const raca = document.getElementById('c-raca')?.value || '';
+  const sexo = document.getElementById('c-sexo')?.value || '';
+  const regs = scopeRegistros(S.registros).filter(r =>
+    (!escola     || r.escola === escola) &&
+    (!ano        || r.ano === ano) &&
+    (!serie      || r.serie === serie) &&
+    (!componente || normComp(r.componente) === normComp(componente)) &&
+    (!socio      || r.socio === socio) &&
+    (!raca       || r.raca === raca) &&
+    (!sexo       || r.sexo === sexo)
+  );
+
+  const tbody = document.getElementById('consulta-tbody');
+  const summary = document.getElementById('consulta-summary');
+  if (!tbody || !summary) return;
+
+  const total = regs.length;
+  const avg = mediaP(regs);
+  const totalAlunos = regs.reduce((sum, r) => sum + (r.alunos || 0), 0);
+
+  summary.innerHTML = `
+    <div class="stat c-azure"><div class="stat-ico">${IC.db}</div><div class="stat-v">${total.toLocaleString('pt-BR')}</div><div class="stat-l">Registros</div></div>
+    <div class="stat c-emerald"><div class="stat-ico">${IC.chart}</div><div class="stat-v">${avg !== null ? avg.toFixed(1) : '—'}</div><div class="stat-l">Prof. média</div></div>
+    <div class="stat c-sky"><div class="stat-ico">${IC.users}</div><div class="stat-v">${totalAlunos.toLocaleString('pt-BR')}</div><div class="stat-l">Alunos avaliados</div></div>`;
+
+  tbody.innerHTML = regs.length ? regs.map(r => `
+    <tr>
+      <td>${escHtml(r.escola)}</td>
+      <td>${escHtml(r.ano)}</td>
+      <td>${escHtml(r.serie)}</td>
+      <td>${escHtml(r.componente)}</td>
+      <td>${escHtml(r.socio)}</td>
+      <td>${escHtml(r.raca)}</td>
+      <td>${escHtml(r.sexo)}</td>
+      <td>${r.prof !== null ? r.prof.toFixed(1) : '—'}</td>
+      <td>${(r.alunos || 0).toLocaleString('pt-BR')}</td>
+    </tr>`).join('') : `
+    <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
 }
 
 function escHtml(s) {
@@ -586,7 +768,8 @@ async function salvarReg() {
   const escola     = document.getElementById('f-escola').value;
   const ano        = document.getElementById('f-ano').value;
   const serie      = document.getElementById('f-serie-1').value;
-  const componente = document.getElementById('f-componente').value || '';
+  // FIX: normaliza componente ao salvar
+  const componente = normComp(document.getElementById('f-componente').value);
   const previstos  = parseInt(document.getElementById('f-previstos').value) || 0;
   const avaliados  = parseInt(document.getElementById('f-avaliados').value) || 0;
 
@@ -637,11 +820,18 @@ async function salvarReg() {
 
   if (error) { toast('Erro ao salvar: ' + error.message, 'err'); return; }
 
+  // FIX: normaliza componente ao adicionar no estado local
   (data || []).forEach(r => S.registros.unshift({
-    id: r.id, escola: r.escola, ano: r.ano, serie: r.serie,
-    componente: r.componente || '',
-    socio: r.socio, raca: r.raca, sexo: r.sexo,
-    prof: parseFloat(r.prof), alunos: parseInt(r.alunos),
+    id: r.id,
+    escola: r.escola,
+    ano: r.ano,
+    serie: r.serie,
+    componente: normComp(r.componente),
+    socio: r.socio,
+    raca: r.raca,
+    sexo: r.sexo,
+    prof: parseFloat(r.prof),
+    alunos: parseInt(r.alunos),
     alunos_previstos: parseInt(r.alunos_previstos) || 0,
     alunos_avaliados: parseInt(r.alunos_avaliados) || 0,
   }));
@@ -663,12 +853,14 @@ function atualizarTabReg() {
   const fil = document.getElementById('fil-reg')?.value || '';
   const regsAll = scopeRegistros(S.registros).filter(r => !fil || r.escola === fil);
 
+  // FIX: chave de agrupamento usa normComp para garantir consistência
   const gruposMap = new Map();
   regsAll.forEach(r => {
-    const key = `${r.escola}||${r.ano}||${r.serie}||${r.componente}`;
+    const comp = normComp(r.componente);
+    const key = `${r.escola}||${r.ano}||${r.serie}||${comp}`;
     if (!gruposMap.has(key)) {
       gruposMap.set(key, {
-        escola: r.escola, ano: r.ano, serie: r.serie, componente: r.componente || '',
+        escola: r.escola, ano: r.ano, serie: r.serie, componente: comp,
         alunos_previstos: r.alunos_previstos, alunos_avaliados: r.alunos_avaliados,
         ids: [], count: 0,
       });
@@ -734,23 +926,6 @@ function confirmarDelGrupo(ids, escola, ano, serie, componente) {
       S.registros = S.registros.filter(r => !ids.includes(r.id));
       toast('Grupo de registros excluído.', 'ok');
       renderDados();
-    }
-  );
-}
-
-function confirmarDelReg(id) {
-  const reg = S.registros.find(r => r.id === id);
-  if (!reg) return;
-  openConfirmModal(
-    'Excluir registro?',
-    `Remover o registro de <strong>${escHtml(reg.escola)}</strong> — ${reg.ano}, ${reg.serie}, ${reg.socio}?`,
-    null,
-    async () => {
-      const { error } = await sb.from('registros').delete().eq('id', id);
-      if (error) { toast('Erro ao excluir: ' + error.message, 'err'); return; }
-      S.registros = S.registros.filter(r => r.id !== id);
-      toast('Registro excluído.', 'ok');
-      atualizarTabReg();
     }
   );
 }
@@ -945,16 +1120,20 @@ async function addUsuario() {
   renderUsuarios();
 }
 
+// ── ANALYTICS ──
+
 function renderAnalytics() {
   const sub = 'Proficiência média ponderada por nº de alunos';
   const escsDisp = scopeEscolas();
   const escoAlerta = userEscola() && S.user.role !== 'admin'
     ? `<div class="scope-alert">${IC.lock}<span>Análise restrita à escola <strong>${escHtml(userEscola())}</strong>.</span></div>`
     : '';
+
   document.getElementById('scr-analytics').innerHTML = `
   <div class="page-hd"><h2 class="serif">Análise comparativa</h2><p>Proficiência por nível socioeconômico, cor/raça e sexo — comparando 2024 e 2025.</p></div>
   ${escoAlerta}
-  <div class="card" style="padding:14px 22px;margin-bottom:22px;">
+
+  <div class="card" style="padding:14px 22px;margin-bottom:32px;">
     <div class="filter-bar">
       <div class="filter-bar-item">
         <label for="a-escola">Escola</label>
@@ -983,75 +1162,605 @@ function renderAnalytics() {
           <option value="">2024 e 2025</option>${ANOS.map(a => `<option>${a}</option>`).join('')}
         </select>
       </div>
-      <div style="margin-left:auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+     <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;">
         <div class="ch-leg-item"><div class="ch-leg-swatch" style="background:#c17b3f;"></div>2024</div>
         <div class="ch-leg-item"><div class="ch-leg-swatch" style="background:#3a7a5c;"></div>2025</div>
-        <button id="btn-export-pdf" class="btn btn-ghost btn-sm" onclick="exportPDF()" style="display:flex;align-items:center;gap:6px;margin-left:4px;">${IC.pdf} Exportar PDF</button>
-      </div>
+       <button id="btn-export-pdf" class="btn btn-ghost btn-sm" onclick="exportPDF()" style="display:flex;align-items:center;gap:6px;margin-left:4px;">${IC.pdf} Exportar PDF</button>
+<button id="btn-export-ppt" class="btn btn-ghost btn-sm" onclick="exportPPT()" style="display:flex;align-items:center;gap:6px;margin-left:4px;">${IC.ppt} Exportar PPTX</button>
+<button id="btn-export-xlsx" class="btn btn-ghost btn-sm" onclick="exportXLSX()" style="display:flex;align-items:center;gap:6px;margin-left:4px;">${IC.db} Exportar Excel</button>
     </div>
   </div>
+
   <div class="print-header">
     <h1>EduMetrics — Análise Comparativa</h1>
     <p id="print-subtitle">Proficiência por nível socioeconômico, cor/raça e sexo — 2024 vs 2025</p>
   </div>
+
   <div class="charts-grid">
     ${[
-      {campo:'socio', id:'ch-socio', mets:'mets-socio', label:'Nível socioeconômico'},
-      {campo:'raca',  id:'ch-raca',  mets:'mets-raca',  label:'Cor / raça'},
-      {campo:'sexo',  id:'ch-sexo',  mets:'mets-sexo',  label:'Sexo'},
+      {campo:'socio', id:'ch-socio', stuId:'stu-socio', mets:'mets-socio', label:'Nível socioeconômico'},
+      {campo:'raca',  id:'ch-raca',  stuId:'stu-raca',  mets:'mets-raca',  label:'Cor / raça'},
+      {campo:'sexo',  id:'ch-sexo',  stuId:'stu-sexo',  mets:'mets-sexo',  label:'Sexo'},
     ].map(c => `
     <div class="chart-card">
       <div class="chart-card-header"><div class="chart-card-title">${IC.chart} ${c.label}</div><div class="chart-card-sub">${sub}</div></div>
       <div id="${c.mets}" class="mets"></div>
       <div class="chart-wrap"><canvas id="${c.id}"></canvas></div>
+      <div class="chart-student-summary" id="${c.stuId}"></div>
     </div>`).join('')}
   </div>`;
+
   if (escsDisp.length === 1) { updateAllCharts(escsDisp[0]); } else { updateAllCharts(); }
 }
 
 function updateAllCharts(forceEscola) {
   const escola     = forceEscola !== undefined ? forceEscola : (document.getElementById('a-escola')?.value || '');
   const serie      = document.getElementById('a-serie')?.value      || '';
-  const componente = document.getElementById('a-componente')?.value || '';
+  // FIX: normaliza componente do filtro de gráficos
+  const componente = normComp(document.getElementById('a-componente')?.value || '');
   const ano        = document.getElementById('a-ano')?.value        || '';
   [
-    { campo: 'socio', chartId: 'ch-socio', metsId: 'mets-socio' },
-    { campo: 'raca',  chartId: 'ch-raca',  metsId: 'mets-raca'  },
-    { campo: 'sexo',  chartId: 'ch-sexo',  metsId: 'mets-sexo'  },
-  ].forEach(({ campo, chartId, metsId }) => {
-    const { cats, ant, atu } = calcMedia(campo, escola, serie, ano, componente);
+    { campo: 'socio', chartId: 'ch-socio', metsId: 'mets-socio', stuId: 'stu-socio' },
+    { campo: 'raca',  chartId: 'ch-raca',  metsId: 'mets-raca',  stuId: 'stu-raca'  },
+    { campo: 'sexo',  chartId: 'ch-sexo',  metsId: 'mets-sexo',  stuId: 'stu-sexo'  },
+  ].forEach(({ campo, chartId, metsId, stuId }) => {
+    const { cats, ant, atu, alunosAnt, alunosAtu } = calcMedia(campo, escola, serie, ano, componente);
+
+    const totalAlunosAnt = alunosAnt.reduce((s, v) => s + v, 0);
+    const totalAlunosAtu = alunosAtu.reduce((s, v) => s + v, 0);
+
     const mel = document.getElementById(metsId);
     if (mel) {
       mel.innerHTML = cats.length
         ? cats.map((cat, i) => {
             const va = ant[i], vb = atu[i];
             const d  = va != null && vb != null ? (vb - va).toFixed(1) : null;
+            const pctAtu = totalAlunosAtu > 0 && alunosAtu[i] > 0
+              ? Math.round(alunosAtu[i] / totalAlunosAtu * 100) : null;
             return `<div class="met">
               <div class="met-v">${vb != null ? vb.toFixed(1) : '—'}</div>
               <div class="met-l">${escHtml(cat)}</div>
+              ${pctAtu !== null ? `<div class="met-pct">${pctAtu}% alunos</div>` : ''}
+              ${alunosAtu[i] > 0 ? `<div class="met-alunos">${alunosAtu[i].toLocaleString('pt-BR')} est.</div>` : ''}
               ${d !== null ? `<div class="met-d ${parseFloat(d) > 0 ? 'up' : parseFloat(d) < 0 ? 'dn' : 'eq'}">${parseFloat(d) > 0 ? '▲ +' : '▼ '}${d}</div>` : ''}
             </div>`;
           }).join('')
         : '<div class="empty" style="grid-column:1/-1"><p>Sem dados para os filtros selecionados.</p></div>';
     }
+
     mkChart(chartId, cats, ant, atu);
+    renderStudentSummary(stuId, cats, alunosAnt, alunosAtu);
   });
 }
 
-function exportPDF() {
+// ── FIX: runQuery também normaliza componente ──
+function runQuery() {
+  const escola     = document.getElementById('q-escola')?.value     || '';
+  const serie      = document.getElementById('q-serie')?.value      || '';
+  // FIX: normaliza componente da consulta
+  const componente = normComp(document.getElementById('q-componente')?.value || '');
+  const ano        = document.getElementById('q-ano')?.value        || '';
+  const dimensao   = document.getElementById('q-dimensao')?.value   || '';
+
+  let regs = scopeRegistros(S.registros);
+  if (escola)     regs = regs.filter(r => r.escola === escola);
+  if (serie)      regs = regs.filter(r => r.serie === serie);
+  // FIX: compara normalizando ambos os lados
+  if (componente) regs = regs.filter(r => normComp(r.componente) === componente);
+  if (ano)        regs = regs.filter(r => r.ano === ano);
+  if (dimensao === 'socio') regs = regs.filter(r => r.socio);
+  if (dimensao === 'raca')  regs = regs.filter(r => r.raca);
+  if (dimensao === 'sexo')  regs = regs.filter(r => r.sexo);
+
+  const bar  = document.getElementById('q-result-bar');
+  const txt  = document.getElementById('q-result-txt');
+  const wrap = document.getElementById('q-table-wrap');
+
+  if (!regs.length) {
+    bar.className = 'query-result-bar show';
+    bar.style.background = '#fce8e8'; bar.style.borderColor = '#f0c4c4'; bar.style.color = 'var(--rose)';
+    txt.textContent = 'Nenhum registro encontrado para os filtros selecionados.';
+    wrap.classList.remove('show');
+    wrap.innerHTML = '';
+    return;
+  }
+
+  bar.className = 'query-result-bar show';
+  bar.style.background = '#e8f5ee'; bar.style.borderColor = '#c4e5d4'; bar.style.color = 'var(--green)';
+  txt.textContent = `${regs.length} linha${regs.length !== 1 ? 's' : ''} encontrada${regs.length !== 1 ? 's' : ''} — ${regs.reduce((s, r) => s + r.alunos, 0).toLocaleString('pt-BR')} estudantes no total.`;
+
+  const agg = new Map();
+  regs.forEach(r => {
+    const cat = r.socio || r.raca || r.sexo || '—';
+    const dim = r.socio ? 'socio' : r.raca ? 'raca' : r.sexo ? 'sexo' : '?';
+    // FIX: chave usa normComp
+    const key = `${r.escola}||${r.ano}||${r.serie}||${normComp(r.componente)}||${dim}||${cat}`;
+    if (!agg.has(key)) agg.set(key, { escola: r.escola, ano: r.ano, serie: r.serie, componente: normComp(r.componente), dim, cat, alunos: 0, profSum: 0 });
+    const g = agg.get(key);
+    g.alunos  += r.alunos;
+    g.profSum += r.prof * r.alunos;
+  });
+
+  const rows = Array.from(agg.values()).sort((a, b) => b.alunos - a.alunos);
+  const totalAlunos = rows.reduce((s, r) => s + r.alunos, 0);
+  const dimLabel = { socio: 'Nível socioecon.', raca: 'Cor/raça', sexo: 'Sexo' };
+
+  wrap.classList.add('show');
+  wrap.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Escola</th><th>Ano</th><th>Série</th><th>Componente</th>
+      <th>Dimensão</th><th>Categoria</th>
+      <th>Estudantes</th><th>% do total</th><th>Profic. média</th>
+    </tr></thead>
+    <tbody>
+    ${rows.map(r => {
+      const profMedia = r.alunos > 0 ? (r.profSum / r.alunos).toFixed(1) : '—';
+      const pct = totalAlunos > 0 ? (r.alunos / totalAlunos * 100).toFixed(1) : '0';
+      const pctNum = parseFloat(pct);
+      return `<tr>
+        <td class="td-b" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(r.escola)}">${escHtml(r.escola)}</td>
+        <td><span class="badge b-${r.ano}">${r.ano}</span></td>
+        <td>${escHtml(r.serie || '—')}</td>
+        <td>${r.componente ? `<span class="badge b-componente">${escHtml(r.componente)}</span>` : '<span style="color:var(--muted2);font-size:11px">—</span>'}</td>
+        <td><span style="font-size:11px;color:var(--muted);font-weight:500;">${dimLabel[r.dim] || r.dim}</span></td>
+        <td class="td-b">${escHtml(r.cat)}</td>
+        <td class="td-b">${r.alunos.toLocaleString('pt-BR')}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:60px;background:var(--cream2);border-radius:99px;height:4px;overflow:hidden;">
+              <div style="width:${Math.min(pctNum,100)}%;height:100%;background:var(--accent);border-radius:99px;"></div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:var(--accent);">${pct}%</span>
+          </div>
+        </td>
+        <td class="td-b">${profMedia}</td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function clearQuery() {
+  ['q-escola','q-serie','q-componente','q-ano','q-dimensao'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const bar = document.getElementById('q-result-bar');
+  if (bar) bar.classList.remove('show');
+  const wrap = document.getElementById('q-table-wrap');
+  if (wrap) { wrap.classList.remove('show'); wrap.innerHTML = ''; }
+}
+
+async function exportPDF() {
+  const btn = document.getElementById('btn-export-pdf');
+
+  const loadScript = src => new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`) && window.html2canvas && window.jspdf) return res();
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+
+  if (!window.jspdf) {
+    btn.disabled = true;
+    btn.innerHTML = `<div class="spinner spinner-dark"></div> Carregando...`;
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }
+  if (!window.html2canvas) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = `<div class="spinner spinner-dark"></div> Gerando PDF...`;
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const W = 297, H = 210;
+
+    const escola     = document.getElementById('a-escola')?.value     || '';
+    const serie      = document.getElementById('a-serie')?.value      || '';
+    const componente = document.getElementById('a-componente')?.value || '';
+    const ano        = document.getElementById('a-ano')?.value        || '';
+    const parts = [];
+    if (escola)     parts.push('Escola: ' + escola);
+    if (serie)      parts.push('Série: ' + serie);
+    if (componente) parts.push('Componente: ' + componente);
+    if (ano)        parts.push('Ano: ' + ano);
+    const filtroTxt = parts.length ? parts.join('  ·  ') : '2024 e 2025 — Todas as escolas';
+
+    // ── CABEÇALHO E RODAPÉ ──
+    const drawHeaderFooter = (pageLabel) => {
+      doc.setFillColor(244, 240, 232);
+      doc.rect(0, 0, W, 12, 'F');
+      doc.setFillColor(193, 123, 63);
+      doc.rect(0, 0, 4, 12, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(26, 22, 18);
+      doc.text('EduMetrics', 10, 8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(193, 123, 63);
+      doc.text('Análise Comparativa', 42, 8);
+      doc.setTextColor(160, 148, 133);
+      doc.text(pageLabel, W - 10, 8, { align: 'right' });
+
+      doc.setFillColor(244, 240, 232);
+      doc.rect(0, H - 8, W, 8, 'F');
+      doc.setFontSize(7);
+      doc.setTextColor(122, 114, 101);
+      doc.text(filtroTxt, 10, H - 3);
+      doc.text(new Date().toLocaleDateString('pt-BR', { year:'numeric', month:'long', day:'numeric' }), W - 10, H - 3, { align: 'right' });
+    };
+
+    // ── PÁGINA 1: CAPA ──
+    doc.setFillColor(250, 248, 244);
+    doc.rect(0, 0, W, H, 'F');
+
+    doc.setFillColor(193, 123, 63);
+    doc.rect(0, 0, 4, H, 'F');
+
+    doc.setFillColor(244, 240, 232);
+    doc.rect(4, 0, W - 4, 16, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(160, 148, 133);
+    doc.text('EDUMETRICS  —  ANÁLISE COMPARATIVA', 16, 10);
+    doc.setTextColor(193, 123, 63);
+    doc.text(new Date().toLocaleDateString('pt-BR', { year:'numeric', month:'long' }).toUpperCase(), W - 10, 10, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(40);
+    doc.setTextColor(26, 22, 18);
+    doc.text('EduMetrics', 18, 60);
+
+    doc.setFontSize(18);
+    doc.setTextColor(193, 123, 63);
+    doc.text('Análise Comparativa de Proficiência', 18, 76);
+
+    doc.setDrawColor(214, 205, 184);
+    doc.setLineWidth(0.5);
+    doc.line(18, 83, W - 18, 83);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(122, 114, 101);
+    doc.text('Proficiência por nível socioeconômico, cor/raça e sexo', 18, 93);
+
+    if (parts.length) {
+      doc.setFontSize(10);
+      doc.setTextColor(160, 148, 133);
+      parts.forEach((p, i) => doc.text('• ' + p, 18, 105 + i * 8));
+    }
+
+    const regsScope = scopeRegistros(S.registros);
+    const r24 = regsScope.filter(r => r.ano === '2024');
+    const r25 = regsScope.filter(r => r.ano === '2025');
+    const m24 = mediaP(r24), m25 = mediaP(r25);
+    const escVis = scopeEscolas();
+
+    const statCards = [
+      { label: 'Escolas',      val: escVis.length,                                                         cor: [74, 127, 168]  },
+      { label: 'Profic. 2024', val: m24 ? m24.toFixed(1) : '—',                                            cor: [193, 123, 63]  },
+      { label: 'Profic. 2025', val: m25 ? m25.toFixed(1) : '—',                                            cor: [58, 122, 92]   },
+      { label: 'Variação',     val: m24&&m25 ? (m25>m24?'+':'')+(m25-m24).toFixed(1) : '—',                cor: m24&&m25&&m25>m24 ? [58,122,92] : [184,85,85] },
+    ];
+
+    statCards.forEach((c, i) => {
+      const x = 18 + i * 66, y = 148;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x, y, 60, 32, 3, 3, 'F');
+      doc.setDrawColor(214, 205, 184);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(x, y, 60, 32, 3, 3, 'S');
+      doc.setFillColor(...c.cor);
+      doc.roundedRect(x, y, 60, 3, 1, 1, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.setTextColor(...c.cor);
+      doc.text(String(c.val), x + 30, y + 20, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(160, 148, 133);
+      doc.text(c.label, x + 30, y + 28, { align: 'center' });
+    });
+
+    doc.setDrawColor(214, 205, 184);
+    doc.setLineWidth(0.3);
+    doc.line(18, H - 12, W - 18, H - 12);
+    doc.setFontSize(8);
+    doc.setTextColor(160, 148, 133);
+    doc.text('Gerado por EduMetrics', 18, H - 6);
+    doc.text(new Date().toLocaleDateString('pt-BR', { year:'numeric', month:'long', day:'numeric' }), W - 18, H - 6, { align: 'right' });
+
+    // ── PÁGINAS DOS GRÁFICOS ──
+    const graficos = [
+      { label: 'Nível Socioeconômico' },
+      { label: 'Cor / Raça'           },
+      { label: 'Sexo'                 },
+    ];
+
+    const chartCards = document.querySelectorAll('.chart-card');
+
+    for (let i = 0; i < chartCards.length; i++) {
+      const card = chartCards[i];
+      const g    = graficos[i];
+      if (!card || !g) continue;
+
+      doc.addPage();
+      doc.setFillColor(250, 248, 244);
+      doc.rect(0, 0, W, H, 'F');
+      drawHeaderFooter(`${i + 1} / ${chartCards.length}`);
+
+      // Título da seção
+      doc.setFillColor(244, 240, 232);
+      doc.rect(10, 14, W - 20, 14, 'F');
+      doc.setFillColor(193, 123, 63);
+      doc.rect(10, 14, 3, 14, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(26, 22, 18);
+      doc.text(g.label, 18, 23);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(122, 114, 101);
+      doc.text('Proficiência média ponderada por nº de alunos — 2024 vs 2025', W - 14, 23, { align: 'right' });
+
+      // Legenda
+      doc.setFillColor(193, 123, 63);
+      doc.rect(14, 31, 6, 3, 'F');
+      doc.setFontSize(8);
+      doc.setTextColor(122, 114, 101);
+      doc.text('2024', 22, 34);
+      doc.setFillColor(58, 122, 92);
+      doc.rect(36, 31, 6, 3, 'F');
+      doc.text('2025', 44, 34);
+
+      // Captura do card
+      const canvasEl = await html2canvas(card, {
+        scale: 2.5,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+
+      const imgData = canvasEl.toDataURL('image/png');
+      const imgW = canvasEl.width, imgH = canvasEl.height;
+      const maxW = W - 20, maxH = H - 52;
+      const ratio = Math.min(maxW / imgW, maxH / imgH);
+      const fW = imgW * ratio, fH = imgH * ratio;
+      const oX = 10 + (maxW - fW) / 2;
+
+      doc.addImage(imgData, 'PNG', oX, 38, fW, fH);
+    }
+
+    doc.save(`EduMetrics-analise-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast('PDF exportado com sucesso!', 'ok');
+  } catch (e) {
+    toast('Erro ao gerar PDF: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `${IC.pdf} Exportar PDF`;
+  }
+}
+
+async function exportPPT() {
+  const btn = document.getElementById('btn-export-ppt');
+  const loadScript = src => new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`) && (window.PptxGenJS || window.PptxGen || window.pptxgen || window.pptxGen)) return res();
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+
+  if (!window.PptxGenJS && !window.PptxGen && !window.pptxgen && !window.pptxGen) {
+    if (btn) { btn.disabled = true; btn.innerHTML = `<div class="spinner spinner-dark"></div> Carregando...`; }
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.8.0/pptxgen.bundle.js');
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = `${IC.ppt} Exportar PPTX`; }
+      toast('Erro carregando biblioteca PPTX: ' + (err.message || err), 'err');
+      return;
+    }
+  }
+
+  let PptxClass = window.PptxGenJS || window.PptxGen || window.pptxgen || window.pptxGen;
+  if (PptxClass && typeof PptxClass !== 'function' && PptxClass.PptxGenJS) {
+    PptxClass = PptxClass.PptxGenJS;
+  }
+  if (!PptxClass || typeof PptxClass !== 'function') {
+    if (btn) { btn.disabled = false; btn.innerHTML = `${IC.ppt} Exportar PPTX`; }
+    toast('Biblioteca PowerPoint não carregada.', 'err');
+    return;
+  }
+
   const escola     = document.getElementById('a-escola')?.value     || '';
   const serie      = document.getElementById('a-serie')?.value      || '';
   const componente = document.getElementById('a-componente')?.value || '';
   const ano        = document.getElementById('a-ano')?.value        || '';
-  const parts  = [];
+
+  const parts = [];
   if (escola)     parts.push('Escola: ' + escola);
   if (serie)      parts.push('Série: ' + serie);
   if (componente) parts.push('Componente: ' + componente);
   if (ano)        parts.push('Ano: ' + ano);
-  const sub = document.getElementById('print-subtitle');
-  if (sub) sub.textContent = 'Proficiência por nível socioeconômico, cor/raça e sexo' + (parts.length ? ' — ' + parts.join(' · ') : ' — 2024 vs 2025');
-  window.print();
+
+  if (btn) { btn.disabled = true; btn.innerHTML = `<div class="spinner spinner-dark"></div> Gerando PPTX...`; }
+
+  const pptx     = new PptxClass();
+  const subtitle = 'Proficiência por nível socioeconômico, cor/raça e sexo' + (parts.length ? ' — ' + parts.join(' · ') : ' — 2024 vs 2025');
+  const rectType  = pptx.ShapeType?.rect || 'rect';
+
+  // Slide de capa
+  const cover = pptx.addSlide();
+  cover.addShape(rectType, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: '1a1612' }, line: { color: '1a1612' } });
+  cover.addText('EduMetrics', { x: 0.5, y: 0.6, w: '90%', fontSize: 11, bold: true, color: 'a09485', fontFace: 'Arial' });
+  cover.addText('Análise Comparativa', { x: 0.5, y: 1.1, w: '90%', fontSize: 32, bold: true, color: 'faf8f4', fontFace: 'Arial' });
+  cover.addText(subtitle, { x: 0.5, y: 2.0, w: '90%', fontSize: 13, color: 'c17b3f', fontFace: 'Arial' });
+  if (parts.length) {
+    cover.addText(parts.join('  ·  '), { x: 0.5, y: 2.6, w: '90%', fontSize: 11, color: '7a7265', fontFace: 'Arial' });
+  }
+  cover.addText(new Date().toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' }), {
+    x: 0.5, y: 4.6, w: '90%', fontSize: 10, color: '453e34', fontFace: 'Arial'
+  });
+
+  // Slides dos gráficos
+  const graficos = [
+    { id: 'ch-socio', label: 'Nível socioeconômico', metsId: 'mets-socio' },
+    { id: 'ch-raca',  label: 'Cor / raça',           metsId: 'mets-raca'  },
+    { id: 'ch-sexo',  label: 'Sexo',                 metsId: 'mets-sexo'  },
+  ];
+
+  for (const g of graficos) {
+    const canvas = document.getElementById(g.id);
+    if (!canvas) continue;
+
+    const slide = pptx.addSlide();
+    slide.addShape(rectType, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: 'faf8f4' }, line: { color: 'faf8f4' } });
+
+    // Cabeçalho
+    slide.addText('EduMetrics — Análise Comparativa', {
+      x: 0.4, y: 0.2, w: '90%', fontSize: 9, color: 'a09485', fontFace: 'Arial'
+    });
+    slide.addText(g.label, {
+      x: 0.4, y: 0.5, w: '90%', fontSize: 20, bold: true, color: '1a1612', fontFace: 'Arial'
+    });
+    slide.addText('Proficiência média ponderada por nº de alunos', {
+      x: 0.4, y: 0.95, w: '90%', fontSize: 10, color: '7a7265', fontFace: 'Arial'
+    });
+
+    // Legenda
+    slide.addShape(rectType, { x: 0.4, y: 1.25, w: 0.18, h: 0.12, fill: { color: 'c17b3f' }, line: { color: 'c17b3f' } });
+    slide.addText('2024', { x: 0.62, y: 1.22, w: 0.5, fontSize: 9, color: '7a7265', fontFace: 'Arial' });
+    slide.addShape(rectType, { x: 1.1, y: 1.25, w: 0.18, h: 0.12, fill: { color: '3a7a5c' }, line: { color: '3a7a5c' } });
+    slide.addText('2025', { x: 1.32, y: 1.22, w: 0.5, fontSize: 9, color: '7a7265', fontFace: 'Arial' });
+
+    // Imagem do gráfico
+    const imgData = canvas.toDataURL('image/png');
+    slide.addImage({ data: imgData, x: 0.4, y: 1.5, w: 9.2, h: 4.0 });
+
+    // Filtros aplicados
+    if (parts.length) {
+      slide.addText(parts.join('  ·  '), {
+        x: 0.4, y: 5.6, w: '90%', fontSize: 9, color: 'a09485', fontFace: 'Arial', italic: true
+      });
+    }
+  }
+
+  try {
+    await pptx.writeFile({ fileName: `EduMetrics-${new Date().toISOString().slice(0,10)}.pptx` });
+    toast('PowerPoint exportado com sucesso!', 'ok');
+  } catch (err) {
+    toast('Erro ao gerar PPTX: ' + (err.message || err), 'err');
+  }
 }
+function exportXLSX() {
+  if (!window.XLSX) { toast('Biblioteca Excel não carregada.', 'err'); return; }
+
+  const escola     = document.getElementById('a-escola')?.value     || '';
+  const serie      = document.getElementById('a-serie')?.value      || '';
+  const componente = normComp(document.getElementById('a-componente')?.value || '');
+  const ano        = document.getElementById('a-ano')?.value        || '';
+
+  let regs = scopeRegistros(S.registros);
+  if (escola)     regs = regs.filter(r => r.escola === escola);
+  if (serie)      regs = regs.filter(r => r.serie === serie);
+  if (componente) regs = regs.filter(r => normComp(r.componente) === componente);
+  if (ano)        regs = regs.filter(r => r.ano === ano);
+
+  if (!regs.length) { toast('Nenhum dado para exportar com os filtros atuais.', 'err'); return; }
+
+  const wb  = XLSX.utils.book_new();
+
+  // ── Aba 1: Dados brutos ──
+  const brutos = regs.map(r => ({
+    'Escola':        r.escola,
+    'Ano':           r.ano,
+    'Série':         r.serie,
+    'Componente':    r.componente || '—',
+    'Nível Socioeconômico': r.socio || '—',
+    'Cor/Raça':      r.raca  || '—',
+    'Sexo':          r.sexo  || '—',
+    'Proficiência':  r.prof,
+    'Alunos Aval.':  r.alunos,
+    'Previstos':     r.alunos_previstos,
+    'Avaliados':     r.alunos_avaliados,
+  }));
+  const ws1 = XLSX.utils.json_to_sheet(brutos);
+  ws1['!cols'] = [
+    {wch:30},{wch:6},{wch:10},{wch:12},{wch:22},
+    {wch:12},{wch:10},{wch:13},{wch:12},{wch:10},{wch:10}
+  ];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Dados Brutos');
+
+  // ── Aba 2: Resumo por dimensão ──
+  const dims = [
+    { campo: 'socio', label: 'Nível Socioeconômico', cats: NIVEL_ORDER },
+    { campo: 'raca',  label: 'Cor/Raça',             cats: RACAS       },
+    { campo: 'sexo',  label: 'Sexo',                 cats: SEXOS       },
+  ];
+
+  const resumo = [];
+  dims.forEach(({ campo, label, cats }) => {
+    ANOS.forEach(a => {
+      cats.forEach(cat => {
+        const sub = regs.filter(r => r[campo] === cat && r.ano === a);
+        if (!sub.length) return;
+        const totalAlunos = sub.reduce((s, r) => s + r.alunos, 0);
+        const profMedia   = totalAlunos ? sub.reduce((s, r) => s + r.prof * r.alunos, 0) / totalAlunos : null;
+        resumo.push({
+          'Dimensão':      label,
+          'Categoria':     cat,
+          'Ano':           a,
+          'Escola':        escola || 'Todas',
+          'Série':         serie  || 'Todas',
+          'Componente':    componente || 'Todos',
+          'Alunos':        totalAlunos,
+          'Profic. Média': profMedia ? parseFloat(profMedia.toFixed(1)) : null,
+        });
+      });
+    });
+  });
+
+  const ws2 = XLSX.utils.json_to_sheet(resumo);
+  ws2['!cols'] = [
+    {wch:22},{wch:14},{wch:6},{wch:28},{wch:10},{wch:12},{wch:8},{wch:14}
+  ];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resumo por Dimensão');
+
+  // ── Aba 3: Comparativo 2024 vs 2025 ──
+  const comp = [];
+  dims.forEach(({ campo, label, cats }) => {
+    cats.forEach(cat => {
+      const sub24 = regs.filter(r => r[campo] === cat && r.ano === '2024');
+      const sub25 = regs.filter(r => r[campo] === cat && r.ano === '2025');
+      const tot24 = sub24.reduce((s, r) => s + r.alunos, 0);
+      const tot25 = sub25.reduce((s, r) => s + r.alunos, 0);
+      const p24   = tot24 ? sub24.reduce((s, r) => s + r.prof * r.alunos, 0) / tot24 : null;
+      const p25   = tot25 ? sub25.reduce((s, r) => s + r.prof * r.alunos, 0) / tot25 : null;
+      if (!p24 && !p25) return;
+      comp.push({
+        'Dimensão':       label,
+        'Categoria':      cat,
+        'Profic. 2024':   p24 ? parseFloat(p24.toFixed(1)) : null,
+        'Alunos 2024':    tot24 || null,
+        'Profic. 2025':   p25 ? parseFloat(p25.toFixed(1)) : null,
+        'Alunos 2025':    tot25 || null,
+        'Variação':       p24 && p25 ? parseFloat((p25 - p24).toFixed(1)) : null,
+      });
+    });
+  });
+
+  const ws3 = XLSX.utils.json_to_sheet(comp);
+  ws3['!cols'] = [
+    {wch:22},{wch:14},{wch:13},{wch:12},{wch:13},{wch:12},{wch:10}
+  ];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Comparativo 2024-2025');
+
+  XLSX.writeFile(wb, `EduMetrics-${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Excel exportado com sucesso!', 'ok');
+}
+
 
 function openConfirmModal(title, desc, warn, onConfirm) {
   document.getElementById('cm-title').textContent = title;
