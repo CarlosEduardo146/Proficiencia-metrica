@@ -1367,183 +1367,204 @@ async function exportPDF() {
     if (serie)      parts.push('Série: ' + serie);
     if (componente) parts.push('Componente: ' + componente);
     if (ano)        parts.push('Ano: ' + ano);
-    const filtroTxt = parts.length ? parts.join('  ·  ') : '2024 e 2025 — Todas as escolas';
+    const filtroTxt = parts.length ? parts.join('  ·  ') : 'Todas as escolas — 2024 e 2025';
+    const dataHoje  = new Date().toLocaleDateString('pt-BR', { year:'numeric', month:'long', day:'numeric' });
 
-    // ── CABEÇALHO E RODAPÉ ──
-    const drawHeaderFooter = (pageLabel) => {
-      doc.setFillColor(244, 240, 232);
-      doc.rect(0, 0, W, 12, 'F');
-      doc.setFillColor(193, 123, 63);
-      doc.rect(0, 0, 4, 12, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(26, 22, 18);
-      doc.text('EduMetrics', 10, 8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(193, 123, 63);
-      doc.text('Análise Comparativa', 42, 8);
-      doc.setTextColor(160, 148, 133);
-      doc.text(pageLabel, W - 10, 8, { align: 'right' });
-
-      doc.setFillColor(244, 240, 232);
-      doc.rect(0, H - 8, W, 8, 'F');
-      doc.setFontSize(7);
-      doc.setTextColor(122, 114, 101);
-      doc.text(filtroTxt, 10, H - 3);
-      doc.text(new Date().toLocaleDateString('pt-BR', { year:'numeric', month:'long', day:'numeric' }), W - 10, H - 3, { align: 'right' });
+    const COR = {
+      ink:    [26, 22, 18],
+      cream:  [250, 248, 244],
+      cream2: [244, 240, 232],
+      cream3: [214, 205, 184],
+      accent: [193, 123, 63],
+      green:  [58, 122, 92],
+      sky:    [74, 127, 168],
+      muted:  [122, 114, 101],
+      muted2: [160, 148, 133],
+      white:  [255, 255, 255],
+      rose:   [184, 85, 85],
     };
 
-    // ── PÁGINA 1: CAPA ──
-    doc.setFillColor(250, 248, 244);
-    doc.rect(0, 0, W, H, 'F');
+    const drawChrome = () => {
+      // Cabeçalho
+      doc.setFillColor(...COR.cream2); doc.rect(0, 0, W, 11, 'F');
+      doc.setFillColor(...COR.accent); doc.rect(0, 0, 3, 11, 'F');
 
-    doc.setFillColor(193, 123, 63);
-    doc.rect(0, 0, 4, H, 'F');
+      // Logo mark
+      doc.setFillColor(...COR.accent);
+      doc.rect(7,   3,   1.2, 5,   'F');
+      doc.rect(9.4, 1.5, 1.2, 6.5, 'F');
+      doc.rect(11.8,4,   1.2, 4,   'F');
 
-    doc.setFillColor(244, 240, 232);
-    doc.rect(4, 0, W - 4, 16, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(160, 148, 133);
-    doc.text('EDUMETRICS  —  ANÁLISE COMPARATIVA', 16, 10);
-    doc.setTextColor(193, 123, 63);
-    doc.text(new Date().toLocaleDateString('pt-BR', { year:'numeric', month:'long' }).toUpperCase(), W - 10, 10, { align: 'right' });
+      doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      doc.setTextColor(...COR.ink);
+      doc.text('EduMetrics', 15.5, 7.5);
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      doc.setTextColor(...COR.muted);
+      doc.text('Análise Comparativa de Proficiência', 37, 7.5);
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(40);
-    doc.setTextColor(26, 22, 18);
-    doc.text('EduMetrics', 18, 60);
+      // Legendas no cabeçalho
+      doc.setFillColor(...COR.accent); doc.roundedRect(W-52, 3.5, 7, 4, 1, 1, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(7);
+      doc.setTextColor(...COR.muted);
+      doc.text('2024', W-43.5, 7);
 
-    doc.setFontSize(18);
-    doc.setTextColor(193, 123, 63);
-    doc.text('Análise Comparativa de Proficiência', 18, 76);
+      doc.setFillColor(...COR.green); doc.roundedRect(W-38, 3.5, 7, 4, 1, 1, 'F');
+      doc.text('2025', W-29.5, 7);
 
-    doc.setDrawColor(214, 205, 184);
-    doc.setLineWidth(0.5);
-    doc.line(18, 83, W - 18, 83);
+      // Rodapé
+      doc.setFillColor(...COR.cream2); doc.rect(0, H-8, W, 8, 'F');
+      doc.setDrawColor(...COR.cream3); doc.setLineWidth(0.2);
+      doc.line(0, H-8, W, H-8);
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
+      doc.setTextColor(...COR.muted2);
+      doc.text(filtroTxt, 8, H-3);
+      doc.text(dataHoje,  W-8, H-3, { align: 'right' });
+    };
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(122, 114, 101);
-    doc.text('Proficiência por nível socioeconômico, cor/raça e sexo', 18, 93);
+    // Captura todos os chart-cards
+    const chartCards = Array.from(document.querySelectorAll('.chart-card'));
+    const graficos = [
+      { label: 'Nível Socioeconômico', campo: 'socio' },
+      { label: 'Cor / Raça',           campo: 'raca'  },
+      { label: 'Sexo',                 campo: 'sexo'  },
+    ];
 
-    if (parts.length) {
-      doc.setFontSize(10);
-      doc.setTextColor(160, 148, 133);
-      parts.forEach((p, i) => doc.text('• ' + p, 18, 105 + i * 8));
+    // Pares: [socio+raca] na pg1, [sexo sozinho] na pg2 — ou qualquer agrupamento 2+1
+    // Agrupamos em páginas de 2 gráficos lado a lado
+    const pages = [];
+    for (let i = 0; i < chartCards.length; i += 2) {
+      pages.push([i, i + 1 < chartCards.length ? i + 1 : null]);
     }
 
-    const regsScope = scopeRegistros(S.registros);
-    const r24 = regsScope.filter(r => r.ano === '2024');
-    const r25 = regsScope.filter(r => r.ano === '2025');
-    const m24 = mediaP(r24), m25 = mediaP(r25);
-    const escVis = scopeEscolas();
+    const HEADER_H = 11;
+    const FOOTER_H = 8;
+    const INNER_H  = H - HEADER_H - FOOTER_H;   // 191mm
+    const GAP      = 6;   // espaço entre os dois gráficos
+    const MARGIN   = 8;   // margem lateral
 
-    const statCards = [
-      { label: 'Escolas',      val: escVis.length,                                                         cor: [74, 127, 168]  },
-      { label: 'Profic. 2024', val: m24 ? m24.toFixed(1) : '—',                                            cor: [193, 123, 63]  },
-      { label: 'Profic. 2025', val: m25 ? m25.toFixed(1) : '—',                                            cor: [58, 122, 92]   },
-      { label: 'Variação',     val: m24&&m25 ? (m25>m24?'+':'')+(m25-m24).toFixed(1) : '—',                cor: m24&&m25&&m25>m24 ? [58,122,92] : [184,85,85] },
-    ];
+    for (let pi = 0; pi < pages.length; pi++) {
+      if (pi > 0) doc.addPage();
 
-    statCards.forEach((c, i) => {
-      const x = 18 + i * 66, y = 148;
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(x, y, 60, 32, 3, 3, 'F');
-      doc.setDrawColor(214, 205, 184);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(x, y, 60, 32, 3, 3, 'S');
-      doc.setFillColor(...c.cor);
-      doc.roundedRect(x, y, 60, 3, 1, 1, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.setTextColor(...c.cor);
-      doc.text(String(c.val), x + 30, y + 20, { align: 'center' });
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(160, 148, 133);
-      doc.text(c.label, x + 30, y + 28, { align: 'center' });
-    });
+      doc.setFillColor(...COR.cream); doc.rect(0, 0, W, H, 'F');
+      drawChrome();
 
-    doc.setDrawColor(214, 205, 184);
-    doc.setLineWidth(0.3);
-    doc.line(18, H - 12, W - 18, H - 12);
-    doc.setFontSize(8);
-    doc.setTextColor(160, 148, 133);
-    doc.text('Gerado por EduMetrics', 18, H - 6);
-    doc.text(new Date().toLocaleDateString('pt-BR', { year:'numeric', month:'long', day:'numeric' }), W - 18, H - 6, { align: 'right' });
+      const [idxA, idxB] = pages[pi];
+      const hasPair = idxB !== null;
+      const slotW   = hasPair ? (W - MARGIN * 2 - GAP) / 2 : W - MARGIN * 2;
 
-    // ── PÁGINAS DOS GRÁFICOS ──
-    const graficos = [
-      { label: 'Nível Socioeconômico' },
-      { label: 'Cor / Raça'           },
-      { label: 'Sexo'                 },
-    ];
+      const slots = hasPair ? [idxA, idxB] : [idxA];
 
-    const chartCards = document.querySelectorAll('.chart-card');
+      for (let si = 0; si < slots.length; si++) {
+        const idx  = slots[si];
+        const card = chartCards[idx];
+        const g    = graficos[idx];
+        if (!card || !g) continue;
 
-    for (let i = 0; i < chartCards.length; i++) {
-      const card = chartCards[i];
-      const g    = graficos[i];
-      if (!card || !g) continue;
+        const slotX = MARGIN + si * (slotW + GAP);
+        const slotY = HEADER_H + 2;
 
-      doc.addPage();
-      doc.setFillColor(250, 248, 244);
-      doc.rect(0, 0, W, H, 'F');
-      drawHeaderFooter(`${i + 1} / ${chartCards.length}`);
+        // Fundo do slot
+        doc.setFillColor(...COR.white);
+        doc.roundedRect(slotX, slotY, slotW, INNER_H - 4, 3, 3, 'F');
+        doc.setDrawColor(...COR.cream3); doc.setLineWidth(0.25);
+        doc.roundedRect(slotX, slotY, slotW, INNER_H - 4, 3, 3, 'S');
 
-      // Título da seção
-      doc.setFillColor(244, 240, 232);
-      doc.rect(10, 14, W - 20, 14, 'F');
-      doc.setFillColor(193, 123, 63);
-      doc.rect(10, 14, 3, 14, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.setTextColor(26, 22, 18);
-      doc.text(g.label, 18, 23);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(122, 114, 101);
-      doc.text('Proficiência média ponderada por nº de alunos — 2024 vs 2025', W - 14, 23, { align: 'right' });
+        // Barra de cor no topo do card
+        const dimCor = g.campo === 'socio' ? COR.accent : g.campo === 'raca' ? COR.sky : COR.green;
+        doc.setFillColor(...dimCor);
+        doc.roundedRect(slotX, slotY, slotW, 3, 1, 1, 'F');
 
-      // Legenda
-      doc.setFillColor(193, 123, 63);
-      doc.rect(14, 31, 6, 3, 'F');
-      doc.setFontSize(8);
-      doc.setTextColor(122, 114, 101);
-      doc.text('2024', 22, 34);
-      doc.setFillColor(58, 122, 92);
-      doc.rect(36, 31, 6, 3, 'F');
-      doc.text('2025', 44, 34);
+        // Título do gráfico
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+        doc.setTextColor(...COR.ink);
+        doc.text(g.label, slotX + slotW / 2, slotY + 11, { align: 'center' });
 
-      // Captura do card
-      const canvasEl = await html2canvas(card, {
-        scale: 2.5,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-      });
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5);
+        doc.setTextColor(...COR.muted2);
+        doc.text('Proficiência média ponderada por nº de alunos', slotX + slotW / 2, slotY + 16.5, { align: 'center' });
 
-      const imgData = canvasEl.toDataURL('image/png');
-      const imgW = canvasEl.width, imgH = canvasEl.height;
-      const maxW = W - 20, maxH = H - 52;
-      const ratio = Math.min(maxW / imgW, maxH / imgH);
-      const fW = imgW * ratio, fH = imgH * ratio;
-      const oX = 10 + (maxW - fW) / 2;
+        // Linha separadora
+        doc.setDrawColor(...COR.cream3); doc.setLineWidth(0.2);
+        doc.line(slotX + 6, slotY + 19, slotX + slotW - 6, slotY + 19);
 
-      doc.addImage(imgData, 'PNG', oX, 38, fW, fH);
+        // Mini métricas por categoria
+        const { cats, ant, atu } = calcMedia(
+          g.campo,
+          escola, serie, ano, normComp(componente)
+        );
+
+        const metW   = (slotW - 12) / Math.max(cats.length, 1);
+        const metY   = slotY + 21;
+        const metH   = 18;
+
+        cats.forEach((cat, ci) => {
+          const va = ant[ci], vb = atu[ci];
+          const d  = va != null && vb != null ? vb - va : null;
+          const mx = slotX + 6 + ci * metW;
+          const dCor = d === null ? COR.muted2 : d > 0 ? COR.green : d < 0 ? COR.rose : COR.muted2;
+
+          doc.setFillColor(...COR.cream2);
+          doc.roundedRect(mx, metY, metW - 2, metH, 1.5, 1.5, 'F');
+
+          // Indicador top
+          doc.setFillColor(...dCor);
+          doc.roundedRect(mx, metY, metW - 2, 1.5, 1, 1, 'F');
+
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(metW > 25 ? 9 : 7.5);
+          doc.setTextColor(...COR.ink);
+          doc.text(vb != null ? vb.toFixed(1) : '—', mx + (metW - 2) / 2, metY + 10, { align: 'center' });
+
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(5.5);
+          doc.setTextColor(...COR.muted2);
+          const shortCat = cat.length > 10 ? cat.slice(0, 9) + '…' : cat;
+          doc.text(shortCat, mx + (metW - 2) / 2, metY + 14, { align: 'center' });
+
+          if (d !== null) {
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5);
+            doc.setTextColor(...dCor);
+            doc.text((d > 0 ? '▲ +' : '▼ ') + d.toFixed(1), mx + (metW - 2) / 2, metY + 17.5, { align: 'center' });
+          }
+        });
+
+        // Imagem do gráfico
+        const canvasEl = await html2canvas(card, {
+          scale: 3,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          ignoreElements: el =>
+            el.classList?.contains('chart-student-summary') ||
+            el.classList?.contains('mets'),
+        });
+
+        const imgData = canvasEl.toDataURL('image/png');
+        const iW = canvasEl.width, iH = canvasEl.height;
+
+        const imgAreaX = slotX + 5;
+        const imgAreaY = slotY + 41;
+        const imgAreaW = slotW - 10;
+        const imgAreaH = INNER_H - 4 - 41 - 5;
+
+        const ratio = Math.min(imgAreaW / iW, imgAreaH / iH);
+        const fW = iW * ratio, fH = iH * ratio;
+        const oX = imgAreaX + (imgAreaW - fW) / 2;
+        const oY = imgAreaY + (imgAreaH - fH) / 2;
+
+        doc.addImage(imgData, 'PNG', oX, oY, fW, fH);
+      }
     }
 
     doc.save(`EduMetrics-analise-${new Date().toISOString().slice(0, 10)}.pdf`);
     toast('PDF exportado com sucesso!', 'ok');
+
   } catch (e) {
     toast('Erro ao gerar PDF: ' + e.message, 'err');
+    console.error(e);
   } finally {
     btn.disabled = false;
     btn.innerHTML = `${IC.pdf} Exportar PDF`;
   }
 }
-
 async function exportPPT() {
   const btn = document.getElementById('btn-export-ppt');
   const loadScript = src => new Promise((res, rej) => {
