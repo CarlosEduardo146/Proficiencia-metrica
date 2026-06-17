@@ -250,23 +250,32 @@ function calcMedia(campo, escolaSel, serieSel, anoSel, componenteSel){
 }
 
 // ── Chart ──
+if(window.Chart && window.ChartDataLabels){ Chart.register(ChartDataLabels); }
 const CHART_CFG = {
   responsive:true, maintainAspectRatio:false,
   plugins:{
     legend:{display:true,position:'top',align:'start',labels:{usePointStyle:true,pointStyle:'rectRounded',boxWidth:10,boxHeight:10,padding:14,color:'#7a7265',font:{family:"'Syne',sans-serif",size:10,weight:'600'}}},
     tooltip:{backgroundColor:'#1a1612',titleColor:'#faf8f4',bodyColor:'#a09485',padding:11,cornerRadius:8,
       titleFont:{family:"'Syne',sans-serif",size:10,weight:'700'},bodyFont:{family:"'DM Sans',sans-serif",size:12},
-      callbacks:{label:c=>{ const v=c.parsed.y; const d=(v!==null&&v!==undefined&&v!==0)?v.toFixed(1):'—'; return `  ${c.dataset.label}: ${d}`; }}}
-  },
-  scales:{
-    y:{beginAtZero:true,grid:{color:'rgba(26,22,18,.05)',drawBorder:false},border:{display:false},ticks:{color:'#a09485',font:{family:"'Syne',sans-serif",size:10},maxTicksLimit:5}},
-    x:{grid:{display:false},border:{display:false},ticks:{color:'#7a7265',font:{family:"'DM Sans',sans-serif",size:11},autoSkip:false,maxRotation:30}}
-  },
-  layout:{padding:{top:4,bottom:0}},
-  animation:{duration:500,easing:'easeOutQuart'}
-};
-
-function mkChart(id, cats, ant, atu){
+      callbacks:{label:c=>{ const v=c.parsed.y; const d=(v!==null&&v!==undefined&&v!==0)?v.toFixed(1):'—'; return `  ${c.dataset.label}: ${d}`; }}},
+      datalabels:{
+        anchor:'end',
+        align:'top',
+        offset:2,
+        color: ctx => ctx.dataset.borderColor,
+        font:{family:"'Syne',sans-serif", size:10, weight:'700'},
+        formatter: v => (v && v>0) ? v.toFixed(1) : ''
+      }
+    },
+    scales:{
+      y:{beginAtZero:true, grace:'12%', grid:{color:'rgba(26,22,18,.05)',drawBorder:false},border:{display:false},ticks:{color:'#a09485',font:{family:"'Syne',sans-serif",size:10},maxTicksLimit:5}},
+      x:{grid:{display:false},border:{display:false},ticks:{color:'#7a7265',font:{family:"'DM Sans',sans-serif",size:11},autoSkip:false,maxRotation:30}}
+    },
+    layout:{padding:{top:4,bottom:0}},
+    animation:{duration:500,easing:'easeOutQuart'}
+  };
+  
+  function mkChart(id, cats, ant, atu){
   if(S.charts[id]){ S.charts[id].destroy(); delete S.charts[id]; }
   const ctx = document.getElementById(id); if(!ctx) return;
   const hasData = cats.length > 0;
@@ -668,36 +677,113 @@ async function exportPDF(){
   const btn=document.getElementById('btn-export-pdf');
   btn.disabled=true; btn.innerHTML=`<div class="spinner spinner-dark"></div> Gerando PDF...`;
   try{
-    const {jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'}); const W=297,H=210;
-    const chartCards=Array.from(document.querySelectorAll('.chart-card'));
-    const graficos=[{label:'Nível Socioeconômico'},{label:'Cor / Raça'},{label:'Sexo'}];
-    const pages=[]; for(let i=0;i<chartCards.length;i+=2) pages.push([i,i+1<chartCards.length?i+1:null]);
-    const HEADER_H=11,FOOTER_H=8,INNER_H=H-HEADER_H-FOOTER_H,GAP=6,MARGIN=8;
-    for(let pi=0;pi<pages.length;pi++){
-      if(pi>0) doc.addPage();
-      doc.setFillColor(250,248,244); doc.rect(0,0,W,H,'F');
-      doc.setFillColor(244,240,232); doc.rect(0,0,W,11,'F');
-      doc.setFillColor(193,123,63);  doc.rect(0,0,3,11,'F');
-      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(26,22,18); doc.text('EduMétricas',7,7.5);
-      doc.setFillColor(244,240,232); doc.rect(0,H-8,W,8,'F');
-      doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(160,148,133);
-      doc.text(new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}),W-8,H-3,{align:'right'});
-      const [idxA,idxB]=pages[pi], hasPair=idxB!==null, slotW=hasPair?(W-MARGIN*2-GAP)/2:W-MARGIN*2;
-      const slots=hasPair?[idxA,idxB]:[idxA];
-      for(let si=0;si<slots.length;si++){
-        const idx=slots[si], card=chartCards[idx]; if(!card) continue;
-        const slotX=MARGIN+si*(slotW+GAP), slotY=HEADER_H+2;
-        doc.setFillColor(255,255,255); doc.roundedRect(slotX,slotY,slotW,INNER_H-4,3,3,'F');
-        doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(26,22,18);
-        doc.text(graficos[idx]?.label||'',slotX+slotW/2,slotY+11,{align:'center'});
-        const canvasEl=await html2canvas(card,{scale:3,useCORS:true,backgroundColor:'#ffffff',logging:false,ignoreElements:el=>el.classList?.contains('chart-student-summary')||el.classList?.contains('mets')});
-        const imgData=canvasEl.toDataURL('image/png'), iW=canvasEl.width, iH=canvasEl.height;
-        const imgAreaW=slotW-10, imgAreaH=INNER_H-4-15-5;
-        const ratio=Math.min(imgAreaW/iW,imgAreaH/iH), fW=iW*ratio, fH=iH*ratio;
-        doc.addImage(imgData,'PNG',slotX+(slotW-fW)/2+5,slotY+15+(imgAreaH-fH)/2,fW,fH);
-      }
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const W=297,H=210;
+    const HEADER_H=14,FOOTER_H=8,MARGIN=6,GAP=4;
+
+    const escolaSel   = document.getElementById('a-escola')?.value||'';
+    const serieSel    = document.getElementById('a-serie')?.value||'';
+    const compSel     = normComp(document.getElementById('a-componente')?.value||'');
+    const anoSel      = document.getElementById('a-ano')?.value||'';
+    const escolaLabel = escolaSel||'Todas as escolas';
+    const subtitulo   = [serieSel,compSel,anoSel].filter(Boolean).join(' · ')||'Todos os filtros';
+
+    // cobertura geral
+    const regsScope = scopeRegistros(S.registros).filter(r=>
+      (!escolaSel||r.escola===escolaSel)&&(!serieSel||r.serie===serieSel)&&
+      (!compSel||normComp(r.componente)===compSel)&&(!anoSel||r.ano===anoSel));
+    const totalPrevistos = totalAlunosPrevistos(regsScope);
+    const totalAvaliados = totalAlunosAvaliados(regsScope);
+    const cobPct = totalPrevistos>0 ? Math.round(totalAvaliados/totalPrevistos*100) : null;
+
+    // ── captura os 3 cards COMPLETOS (com métricas e resumo de estudantes) ──
+    const chartCards = Array.from(document.querySelectorAll('.chart-card'));
+    // ordem na DOM: [0]=socio, [1]=raca, [2]=sexo
+    const captures = [];
+    for(let i=0;i<3;i++){
+      const card = chartCards[i];
+      if(!card){ captures.push(null); continue; }
+      const canvas = await html2canvas(card,{
+        scale:2,
+        useCORS:true,
+        backgroundColor:'#ffffff',
+        logging:false
+        // SEM ignoreElements — captura tudo igual à tela
+      });
+      captures.push(canvas);
     }
-    doc.save(`EduMetricas-${new Date().toISOString().slice(0,10)}.pdf`); toast('PDF exportado!','ok');
+
+    // ── FUNDO ──
+    doc.setFillColor(250,248,244); doc.rect(0,0,W,H,'F');
+
+    // ── CABEÇALHO ──
+    doc.setFillColor(244,240,232); doc.rect(0,0,W,HEADER_H,'F');
+    doc.setFillColor(193,123,63);  doc.rect(0,0,3,HEADER_H,'F');
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(160,148,133);
+    doc.text('EduMétricas',7,5);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(26,22,18);
+    doc.text(escolaLabel,7,11);
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(160,148,133);
+    doc.text(subtitulo, W-MARGIN, 11, {align:'right'});
+
+    // cobertura centralizada
+    if(cobPct!==null){
+      const r=cobPct>=80?58:cobPct>=60?160:140, g=cobPct>=80?122:cobPct>=60?100:80, b=cobPct>=80?92:60;
+      doc.setTextColor(r,g,b); doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
+      doc.text(
+        `Cobertura: ${totalAvaliados.toLocaleString('pt-BR')} / ${totalPrevistos.toLocaleString('pt-BR')} alunos (${cobPct}%)`,
+        W/2, 11, {align:'center'}
+      );
+    }
+
+    // ── RODAPÉ ──
+    doc.setFillColor(244,240,232); doc.rect(0,H-FOOTER_H,W,FOOTER_H,'F');
+    doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(160,148,133);
+    doc.text(
+      new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}),
+      W-MARGIN, H-3, {align:'right'}
+    );
+
+    // ── 3 SLOTS LADO A LADO ──
+    const CONTENT_Y = HEADER_H+2;
+    const CONTENT_H = H-HEADER_H-FOOTER_H-3;
+    const slotW     = (W - MARGIN*2 - GAP*2) / 3;
+
+    // ordem: socio=0, raca=1, sexo=2  (igual à tela)
+    for(let si=0;si<3;si++){
+      const canvas = captures[si];
+      if(!canvas) continue;
+
+      const slotX = MARGIN + si*(slotW+GAP);
+
+      // card branco com borda suave
+      doc.setFillColor(255,255,255);
+      doc.roundedRect(slotX, CONTENT_Y, slotW, CONTENT_H, 3,3,'F');
+
+      // imagem do card inteiro, centralizada e preenchendo o slot
+      const imgAreaX = slotX+2;
+      const imgAreaY = CONTENT_Y+2;
+      const imgAreaW = slotW-4;
+      const imgAreaH = CONTENT_H-4;
+
+      const ratio = Math.min(imgAreaW/canvas.width, imgAreaH/canvas.height);
+      const fW = canvas.width*ratio;
+      const fH = canvas.height*ratio;
+
+      doc.addImage(
+        canvas.toDataURL('image/png'), 'PNG',
+        imgAreaX+(imgAreaW-fW)/2,
+        imgAreaY+(imgAreaH-fH)/2,
+        fW, fH
+      );
+    }
+
+    doc.save(`EduMetricas-${new Date().toISOString().slice(0,10)}.pdf`);
+    toast('PDF exportado!','ok');
   } catch(e){ toast('Erro PDF: '+e.message,'err'); }
   finally { btn.disabled=false; btn.innerHTML=IC.pdf+' PDF'; }
 }
