@@ -104,7 +104,7 @@ async function loadAll(){
   }
   const [{data:esc,error:e1},{data:usr,error:e3},reg] = await Promise.all([
     sb.from('escolas').select('nome').order('nome'),
-    sb.from('usuarios').select('id,nome,login,role,escola'),
+    sb.from('usuarios').select('id,nome,login,role,escola,senha'),
     fetchAllRegistros(),
   ]);
   if(e1||e3) throw new Error((e1||e3).message);
@@ -275,7 +275,7 @@ const CHART_CFG = {
     animation:{duration:500,easing:'easeOutQuart'}
   };
   
-  function mkChart(id, cats, ant, atu){
+function mkChart(id, cats, ant, atu){
   if(S.charts[id]){ S.charts[id].destroy(); delete S.charts[id]; }
   const ctx = document.getElementById(id); if(!ctx) return;
   const hasData = cats.length > 0;
@@ -335,12 +335,6 @@ function renderHome(){
         <button class="btn hero-btn-g" onclick="navigate('consulta')">${IC.search} Consultar dados</button>
         <button class="btn hero-btn-g" onclick="navigate('analytics')">${IC.chart} Ver gráficos</button>
       </div>
-    </div>
-    <div class="stats-row">
-      <div class="stat c-azure"><div class="stat-ico">${IC.school}</div><div class="stat-v">${escsVis.length}</div><div class="stat-l">Escolas</div></div>
-      <div class="stat c-emerald"><div class="stat-ico">${IC.users}</div><div class="stat-v">${totalAvaliados.toLocaleString('pt-BR')}</div><div class="stat-l">Estudantes avaliados</div></div>
-      <div class="stat c-violet"><div class="stat-ico">${IC.chart}</div><div class="stat-v">${r24.length&&ma!==null?ma.toFixed(1):'—'}</div><div class="stat-l">Profic. 2024</div></div>
-      <div class="stat c-sky"><div class="stat-ico">${IC.chart}</div><div class="stat-v">${r25.length&&mb!==null?mb.toFixed(1):'—'}</div><div class="stat-l">Profic. 2025</div>${diffTag(diff)}</div>
     </div>
     <div class="card">
       <div class="card-hd">${IC.school} ${escsVis.length===1?'Dados da escola — 2025':'Ranking de escolas — 2025'}</div>
@@ -571,8 +565,22 @@ function renderUsuarios(){
       <button class="btn btn-primary" id="btn-add-usr" style="margin-top:14px;" onclick="addUsuario()">${IC.plus} Adicionar</button>
     </div>
     <div class="card">
-      <div class="card-hd">${IC.users} Usuários</div>
-      <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Login</th><th>Perfil</th><th>Acesso</th><th></th></tr></thead><tbody>${S.usuarios.map(u=>`<tr><td class="td-b">${escHtml(u.nome)}</td><td>${escHtml(u.login)}</td><td><span class="badge ${u.role==='admin'?'b-admin':'b-user'}">${u.role==='admin'?'Admin':'Usuário'}</span></td><td>${u.role==='admin'?`<span class="badge b-secretaria">Todas as escolas</span>`:u.escola?`<span class="badge b-escola">${escHtml(u.escola)}</span>`:`<span class="badge b-secretaria">Secretaria</span>`}</td><td>${u.login!=='admin'?`<button class="btn btn-sm btn-danger" onclick="confirmarDelUsuario('${escHtml(u.login)}')">${IC.trash}</button>`:`<span style="font-size:11px;color:var(--muted2)">protegido</span>`}</td></tr>`).join('')}</tbody></table></div>
+      <div class="card-hd">
+        ${IC.users} Usuários
+        <div class="card-hd-right" style="display:flex;gap:7px;">
+          <button class="btn btn-ghost btn-sm" onclick="exportUsuariosXLSX()">${IC.db} Excel</button>
+          <button class="btn btn-ghost btn-sm" id="btn-export-usr-pdf" onclick="exportUsuariosPDF()">${IC.pdf} PDF</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Login</th><th>Senha</th><th>Perfil</th><th>Acesso</th><th></th></tr></thead><tbody>${S.usuarios.map(u=>`
+        <tr>
+          <td class="td-b">${escHtml(u.nome)}</td>
+          <td>${escHtml(u.login)}</td>
+          <td>${escHtml(u.senha || '—')}</td>
+          <td><span class="badge ${u.role==='admin'?'b-admin':'b-user'}">${u.role==='admin'?'Admin':'Usuário'}</span></td>
+          <td>${u.role==='admin'?`<span class="badge b-secretaria">Todas as escolas</span>`:u.escola?`<span class="badge b-escola">${escHtml(u.escola)}</span>`:`<span class="badge b-secretaria">Secretaria</span>`}</td>
+          <td>${u.login!=='admin'?`<button class="btn btn-sm btn-danger" onclick="confirmarDelUsuario('${escHtml(u.login)}')">${IC.trash}</button>`:`<span style="font-size:11px;color:var(--muted2)">protegido</span>`}</td>
+        </tr>`).join('')}</tbody></table></div>
     </div>`;
   toggleEscolaField();
 }
@@ -689,7 +697,6 @@ async function exportPDF(){
     const escolaLabel = escolaSel||'Todas as escolas';
     const subtitulo   = [serieSel,compSel,anoSel].filter(Boolean).join(' · ')||'Todos os filtros';
 
-    // cobertura geral
     const regsScope = scopeRegistros(S.registros).filter(r=>
       (!escolaSel||r.escola===escolaSel)&&(!serieSel||r.serie===serieSel)&&
       (!compSel||normComp(r.componente)===compSel)&&(!anoSel||r.ano===anoSel));
@@ -697,89 +704,51 @@ async function exportPDF(){
     const totalAvaliados = totalAlunosAvaliados(regsScope);
     const cobPct = totalPrevistos>0 ? Math.round(totalAvaliados/totalPrevistos*100) : null;
 
-    // ── captura os 3 cards COMPLETOS (com métricas e resumo de estudantes) ──
     const chartCards = Array.from(document.querySelectorAll('.chart-card'));
-    // ordem na DOM: [0]=socio, [1]=raca, [2]=sexo
     const captures = [];
     for(let i=0;i<3;i++){
       const card = chartCards[i];
       if(!card){ captures.push(null); continue; }
-      const canvas = await html2canvas(card,{
-        scale:2,
-        useCORS:true,
-        backgroundColor:'#ffffff',
-        logging:false
-        // SEM ignoreElements — captura tudo igual à tela
-      });
+      const canvas = await html2canvas(card,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false});
       captures.push(canvas);
     }
 
-    // ── FUNDO ──
     doc.setFillColor(250,248,244); doc.rect(0,0,W,H,'F');
-
-    // ── CABEÇALHO ──
     doc.setFillColor(244,240,232); doc.rect(0,0,W,HEADER_H,'F');
     doc.setFillColor(193,123,63);  doc.rect(0,0,3,HEADER_H,'F');
 
     doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(160,148,133);
     doc.text('EduMétricas',7,5);
-
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(26,22,18);
     doc.text(escolaLabel,7,11);
-
     doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(160,148,133);
     doc.text(subtitulo, W-MARGIN, 11, {align:'right'});
 
-    // cobertura centralizada
     if(cobPct!==null){
       const r=cobPct>=80?58:cobPct>=60?160:140, g=cobPct>=80?122:cobPct>=60?100:80, b=cobPct>=80?92:60;
       doc.setTextColor(r,g,b); doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
-      doc.text(
-        `Cobertura: ${totalAvaliados.toLocaleString('pt-BR')} / ${totalPrevistos.toLocaleString('pt-BR')} alunos (${cobPct}%)`,
-        W/2, 11, {align:'center'}
-      );
+      doc.text(`Cobertura: ${totalAvaliados.toLocaleString('pt-BR')} / ${totalPrevistos.toLocaleString('pt-BR')} alunos (${cobPct}%)`,W/2, 11, {align:'center'});
     }
 
-    // ── RODAPÉ ──
     doc.setFillColor(244,240,232); doc.rect(0,H-FOOTER_H,W,FOOTER_H,'F');
     doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(160,148,133);
-    doc.text(
-      new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}),
-      W-MARGIN, H-3, {align:'right'}
-    );
+    doc.text(new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}),W-MARGIN, H-3, {align:'right'});
 
-    // ── 3 SLOTS LADO A LADO ──
     const CONTENT_Y = HEADER_H+2;
     const CONTENT_H = H-HEADER_H-FOOTER_H-3;
     const slotW     = (W - MARGIN*2 - GAP*2) / 3;
 
-    // ordem: socio=0, raca=1, sexo=2  (igual à tela)
     for(let si=0;si<3;si++){
       const canvas = captures[si];
       if(!canvas) continue;
-
       const slotX = MARGIN + si*(slotW+GAP);
-
-      // card branco com borda suave
       doc.setFillColor(255,255,255);
       doc.roundedRect(slotX, CONTENT_Y, slotW, CONTENT_H, 3,3,'F');
-
-      // imagem do card inteiro, centralizada e preenchendo o slot
-      const imgAreaX = slotX+2;
-      const imgAreaY = CONTENT_Y+2;
-      const imgAreaW = slotW-4;
-      const imgAreaH = CONTENT_H-4;
-
+      const imgAreaX = slotX+2, imgAreaY = CONTENT_Y+2;
+      const imgAreaW = slotW-4, imgAreaH = CONTENT_H-4;
       const ratio = Math.min(imgAreaW/canvas.width, imgAreaH/canvas.height);
-      const fW = canvas.width*ratio;
-      const fH = canvas.height*ratio;
-
-      doc.addImage(
-        canvas.toDataURL('image/png'), 'PNG',
-        imgAreaX+(imgAreaW-fW)/2,
-        imgAreaY+(imgAreaH-fH)/2,
-        fW, fH
-      );
+      const fW = canvas.width*ratio, fH = canvas.height*ratio;
+      doc.addImage(canvas.toDataURL('image/png'),'PNG',imgAreaX+(imgAreaW-fW)/2,imgAreaY+(imgAreaH-fH)/2,fW,fH);
     }
 
     doc.save(`EduMetricas-${new Date().toISOString().slice(0,10)}.pdf`);
@@ -827,6 +796,177 @@ function exportXLSX(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(brutos),'Dados Brutos');
   XLSX.writeFile(wb,`EduMetricas-${new Date().toISOString().slice(0,10)}.xlsx`);
   toast('Excel exportado!','ok');
+}
+
+// ── Exportar Usuários XLSX ──
+function exportUsuariosXLSX() {
+  if (!window.XLSX) { toast('Biblioteca Excel não carregada.', 'err'); return; }
+  if (!S.usuarios.length) { toast('Nenhum usuário para exportar.', 'err'); return; }
+  const wb = XLSX.utils.book_new();
+  const dados = S.usuarios.map(u => ({
+    'Nome':   u.nome,
+    'Login':  u.login,
+    'Senha':  u.senha || '—',
+    'Perfil': u.role === 'admin' ? 'Administrador' : 'Usuário',
+    'Acesso': u.role === 'admin' ? 'Todas as escolas' : (u.escola || 'Secretaria')
+  }));
+  const ws = XLSX.utils.json_to_sheet(dados);
+  XLSX.utils.book_append_sheet(wb, ws, 'Usuários');
+  XLSX.writeFile(wb, `EduMetricas-Usuarios-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  toast('Excel de usuários exportado!', 'ok');
+}
+
+// ── Exportar Usuários PDF ──
+async function exportUsuariosPDF() {
+  const btn = document.getElementById('btn-export-usr-pdf');
+  if (btn) { btn.disabled = true; btn.innerHTML = `<div class="spinner spinner-dark"></div> Gerando...`; }
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const W = 297, MARGIN = 14;
+
+    // ── Cabeçalho ──
+    doc.setFillColor(26, 22, 18);
+    doc.rect(0, 0, W, 22, 'F');
+    doc.setFillColor(193, 123, 63);
+    doc.rect(0, 0, 3, 22, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(250, 248, 244);
+    doc.text('EduMétricas — Usuários Cadastrados', MARGIN, 14);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(160, 148, 133);
+    doc.text(new Date().toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' }), W - MARGIN, 14, { align: 'right' });
+
+    // ── Resumo ──
+    const totalAdmin  = S.usuarios.filter(u => u.role === 'admin').length;
+    const totalEscola = S.usuarios.filter(u => u.role !== 'admin' && u.escola).length;
+    const totalSec    = S.usuarios.filter(u => u.role !== 'admin' && !u.escola).length;
+    doc.setFillColor(244, 240, 232);
+    doc.rect(MARGIN, 27, W - MARGIN * 2, 14, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(26, 22, 18);
+    doc.text(`Total: ${S.usuarios.length}`, MARGIN + 4, 35);
+    doc.setTextColor(90, 74, 154);
+    doc.text(`Admins: ${totalAdmin}`, MARGIN + 38, 35);
+    doc.setTextColor(58, 122, 92);
+    doc.text(`Por escola: ${totalEscola}`, MARGIN + 72, 35);
+    doc.setTextColor(74, 127, 168);
+    doc.text(`Secretaria: ${totalSec}`, MARGIN + 118, 35);
+
+    // ── Colunas ──
+    let y = 48;
+    const COL = {
+      nome:   { x: MARGIN,       w: 80 },
+      login:  { x: MARGIN + 82,  w: 46 },
+      senha:  { x: MARGIN + 130, w: 40 },
+      perfil: { x: MARGIN + 172, w: 28 },
+      acesso: { x: MARGIN + 202, w: 67 }
+    };
+
+    // Cabeçalho da tabela
+    doc.setFillColor(237, 232, 221);
+    doc.rect(MARGIN, y, W - MARGIN * 2, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(122, 114, 101);
+    doc.text('NOME',   COL.nome.x   + 2, y + 5.5);
+    doc.text('LOGIN',  COL.login.x  + 2, y + 5.5);
+    doc.text('SENHA',  COL.senha.x  + 2, y + 5.5);
+    doc.text('PERFIL', COL.perfil.x + 2, y + 5.5);
+    doc.text('ACESSO', COL.acesso.x + 2, y + 5.5);
+    y += 8;
+
+    // ── Linhas ──
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    const PAGE_H = 197, ROW_H = 7.5;
+
+    S.usuarios.forEach((u, i) => {
+      if (y + ROW_H > PAGE_H) {
+        doc.addPage();
+        y = 18;
+        doc.setFillColor(237, 232, 221);
+        doc.rect(MARGIN, y, W - MARGIN * 2, 8, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(122, 114, 101);
+        doc.text('NOME',   COL.nome.x   + 2, y + 5.5);
+        doc.text('LOGIN',  COL.login.x  + 2, y + 5.5);
+        doc.text('SENHA',  COL.senha.x  + 2, y + 5.5);
+        doc.text('PERFIL', COL.perfil.x + 2, y + 5.5);
+        doc.text('ACESSO', COL.acesso.x + 2, y + 5.5);
+        y += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+      }
+
+      if (i % 2 === 0) {
+        doc.setFillColor(250, 248, 244);
+        doc.rect(MARGIN, y, W - MARGIN * 2, ROW_H, 'F');
+      }
+
+      const perfil = u.role === 'admin' ? 'Admin' : 'Usuário';
+      const acesso = u.role === 'admin' ? 'Todas as escolas' : (u.escola || 'Secretaria');
+
+      // Badge de perfil
+      if (u.role === 'admin') {
+        doc.setFillColor(237, 232, 247); doc.setDrawColor(216, 207, 238);
+        doc.roundedRect(COL.perfil.x + 1, y + 1.5, 18, 4.5, 2, 2, 'FD');
+        doc.setTextColor(90, 74, 154);
+      } else {
+        doc.setFillColor(232, 245, 238); doc.setDrawColor(196, 229, 212);
+        doc.roundedRect(COL.perfil.x + 1, y + 1.5, 18, 4.5, 2, 2, 'FD');
+        doc.setTextColor(58, 122, 92);
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.text(perfil, COL.perfil.x + 10, y + 5, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(26, 22, 18);
+      const nomeStr = u.nome.length > 40 ? u.nome.slice(0, 38) + '…' : u.nome;
+      doc.text(nomeStr, COL.nome.x + 2, y + 5.2);
+
+      doc.setTextColor(122, 114, 101);
+      doc.text(u.login, COL.login.x + 2, y + 5.2);
+
+      doc.setTextColor(160, 100, 60);
+      doc.text(u.senha || '—', COL.senha.x + 2, y + 5.2);
+
+      doc.setTextColor(74, 127, 168);
+      const acessoStr = acesso.length > 32 ? acesso.slice(0, 30) + '…' : acesso;
+      doc.text(acessoStr, COL.acesso.x + 2, y + 5.2);
+
+      doc.setDrawColor(237, 232, 221);
+      doc.line(MARGIN, y + ROW_H, W - MARGIN, y + ROW_H);
+      y += ROW_H;
+    });
+
+    // ── Rodapé ──
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFillColor(244, 240, 232);
+      doc.rect(0, 290, W, 7, 'F');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(160, 148, 133);
+      doc.text(`Página ${p} de ${totalPages}`, W / 2, 294.5, { align: 'center' });
+      doc.text('EduMétricas', MARGIN, 294.5);
+    }
+
+    doc.save(`EduMetricas-Usuarios-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast('PDF de usuários exportado!', 'ok');
+  } catch (e) {
+    toast('Erro PDF: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = IC.pdf + ' PDF'; }
+  }
 }
 
 // ── Confirm Modal ──
