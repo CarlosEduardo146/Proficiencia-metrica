@@ -43,6 +43,7 @@ const IC = {
   chart:  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
   plus:   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
   trash:  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
+  edit: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   check:  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`,
   ar:     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
   al:     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`,
@@ -205,6 +206,10 @@ function buildNav(){
     return `<button class="nav-btn" id="nav-${item.id}" onclick="navigate('${item.id}')">${IC[item.icon]||''}${item.label}</button>`;
   }).join('');
 }
+// Em initApp(), após setar user-nm e user-rl, adicione:
+document.getElementById('user-av').onclick = () => openPerfilModal();
+document.getElementById('user-av').style.cursor = 'pointer';
+document.getElementById('user-av').title = 'Meu perfil';
 
 const TITLES = {home:'Visão geral',consulta:'Consulta',dados:'Inserir dados',escolas:'Gerenciar escolas',usuarios:'Gerenciar usuários',analytics:'Análise comparativa'};
 
@@ -579,7 +584,12 @@ function renderUsuarios(){
           <td>${escHtml(u.senha || '—')}</td>
           <td><span class="badge ${u.role==='admin'?'b-admin':'b-user'}">${u.role==='admin'?'Admin':'Usuário'}</span></td>
           <td>${u.role==='admin'?`<span class="badge b-secretaria">Todas as escolas</span>`:u.escola?`<span class="badge b-escola">${escHtml(u.escola)}</span>`:`<span class="badge b-secretaria">Secretaria</span>`}</td>
-          <td>${u.login!=='admin'?`<button class="btn btn-sm btn-danger" onclick="confirmarDelUsuario('${escHtml(u.login)}')">${IC.trash}</button>`:`<span style="font-size:11px;color:var(--muted2)">protegido</span>`}</td>
+          <td style="display:flex;gap:6px;align-items:center;">
+  <button class="btn btn-sm btn-ghost" onclick="abrirEditarUsuario('${escHtml(u.login)}')">${IC.edit} Editar</button>
+  ${u.login!=='admin'
+    ? `<button class="btn btn-sm btn-danger" onclick="confirmarDelUsuario('${escHtml(u.login)}')">${IC.trash}</button>`
+    : `<span style="font-size:11px;color:var(--muted2)">protegido</span>`}
+</td>
         </tr>`).join('')}</tbody></table></div>
     </div>`;
   toggleEscolaField();
@@ -681,80 +691,219 @@ function clearQuery(){
 }
 
 // ── Exports ──
-async function exportPDF(){
-  const btn=document.getElementById('btn-export-pdf');
-  btn.disabled=true; btn.innerHTML=`<div class="spinner spinner-dark"></div> Gerando PDF...`;
+// ── Exportar PDF Analytics ──
+
+
+// ── Exportar Usuários PDF ──
+async function exportUsuariosPDF() {
+  const btn = document.getElementById('btn-export-usr-pdf');
+  if(btn){ btn.disabled=true; btn.innerHTML=`<div class="spinner spinner-dark"></div> Gerando...`; }
   try{
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-    const W=297,H=210;
-    const HEADER_H=14,FOOTER_H=8,MARGIN=6,GAP=4;
+    const W=297, MARGIN=14;
 
-    const escolaSel   = document.getElementById('a-escola')?.value||'';
-    const serieSel    = document.getElementById('a-serie')?.value||'';
-    const compSel     = normComp(document.getElementById('a-componente')?.value||'');
-    const anoSel      = document.getElementById('a-ano')?.value||'';
-    const escolaLabel = escolaSel||'Todas as escolas';
-    const subtitulo   = [serieSel,compSel,anoSel].filter(Boolean).join(' · ')||'Todos os filtros';
+    // Carrega logo
+    let logoDataUrl = null;
+    try{
+      const resp=await fetch('images/logo.png');
+      const blob=await resp.blob();
+      logoDataUrl=await new Promise(res=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob); });
+    } catch(_){}
 
-    const regsScope = scopeRegistros(S.registros).filter(r=>
-      (!escolaSel||r.escola===escolaSel)&&(!serieSel||r.serie===serieSel)&&
-      (!compSel||normComp(r.componente)===compSel)&&(!anoSel||r.ano===anoSel));
-    const totalPrevistos = totalAlunosPrevistos(regsScope);
-    const totalAvaliados = totalAlunosAvaliados(regsScope);
-    const cobPct = totalPrevistos>0 ? Math.round(totalAvaliados/totalPrevistos*100) : null;
+    const drawHeader = (isFirst) => {
+      // Fundo escuro
+      doc.setFillColor(26,22,18);
+      doc.rect(0,0,W,isFirst?28:22,'F');
+      // Faixa accent topo
+      doc.setFillColor(193,123,63);
+      doc.rect(0,0,W,2,'F');
 
-    const chartCards = Array.from(document.querySelectorAll('.chart-card'));
-    const captures = [];
-    for(let i=0;i<3;i++){
-      const card = chartCards[i];
-      if(!card){ captures.push(null); continue; }
-      const canvas = await html2canvas(card,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false});
-      captures.push(canvas);
+      // Logo
+      if(logoDataUrl){
+        doc.addImage(logoDataUrl,'PNG', MARGIN, 4, 24, 12);
+      }
+
+      // Separador
+      doc.setDrawColor(193,123,63);
+      doc.setLineWidth(0.4);
+      const lx = MARGIN+(logoDataUrl?28:0);
+      doc.line(lx, 5, lx, isFirst?23:17);
+
+      const tx = MARGIN+(logoDataUrl?32:0);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(11);
+      doc.setTextColor(250,248,244);
+      doc.text('Usuários Cadastrados', tx, 11);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7);
+      doc.setTextColor(193,123,63);
+      doc.text('EduMétricas — Gestão de Acessos', tx, 16);
+
+      // Data no canto direito
+      doc.setTextColor(160,148,133);
+      doc.setFontSize(6.5);
+      doc.text(new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}), W-MARGIN, 11, {align:'right'});
+
+      if(isFirst){
+        // Resumo colorido
+        const totalAdmin  = S.usuarios.filter(u=>u.role==='admin').length;
+        const totalEscola = S.usuarios.filter(u=>u.role!=='admin'&&u.escola).length;
+        const totalSec    = S.usuarios.filter(u=>u.role!=='admin'&&!u.escola).length;
+
+        const chips = [
+          {label:'Total', val:S.usuarios.length, cor:[74,127,168]},
+          {label:'Admins', val:totalAdmin, cor:[90,74,154]},
+          {label:'Por escola', val:totalEscola, cor:[58,122,92]},
+          {label:'Secretaria', val:totalSec, cor:[160,100,60]},
+        ];
+        let cx = W-MARGIN-180;
+        chips.forEach(c=>{
+          doc.setFillColor(40,36,30);
+          doc.roundedRect(cx, 4, 40, 16, 2, 2, 'F');
+          doc.setFillColor(...c.cor);
+          doc.roundedRect(cx, 4, 3, 16, 1, 1, 'F');
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(13);
+          doc.setTextColor(...c.cor);
+          doc.text(String(c.val), cx+22, 13, {align:'center'});
+          doc.setFont('helvetica','normal');
+          doc.setFontSize(5.5);
+          doc.setTextColor(160,148,133);
+          doc.text(c.label, cx+22, 18, {align:'center'});
+          cx += 44;
+        });
+      }
+    };
+
+    const drawTableHeader = (y) => {
+      doc.setFillColor(40,36,30);
+      doc.rect(MARGIN, y, W-MARGIN*2, 8, 'F');
+      doc.setFillColor(193,123,63);
+      doc.rect(MARGIN, y, 3, 8, 'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(193,123,63);
+      doc.text('NOME',    COL.nome.x+5,   y+5.5);
+      doc.setTextColor(160,148,133);
+      doc.text('LOGIN',   COL.login.x+2,  y+5.5);
+      doc.text('SENHA',   COL.senha.x+2,  y+5.5);
+      doc.text('PERFIL',  COL.perfil.x+2, y+5.5);
+      doc.text('ACESSO',  COL.acesso.x+2, y+5.5);
+    };
+
+    const COL = {
+      nome:   {x:MARGIN},
+      login:  {x:MARGIN+82},
+      senha:  {x:MARGIN+130},
+      perfil: {x:MARGIN+172},
+      acesso: {x:MARGIN+202}
+    };
+
+    // ── Página 1 ──
+    drawHeader(true);
+    let y = 34;
+    drawTableHeader(y);
+    y += 8;
+
+    const PAGE_H=197, ROW_H=8;
+
+    S.usuarios.forEach((u,i)=>{
+      if(y+ROW_H>PAGE_H){
+        // Rodapé
+        drawFooter(doc, W, MARGIN);
+        doc.addPage();
+        drawHeader(false);
+        y=28;
+        drawTableHeader(y);
+        y+=8;
+      }
+
+      // Linha zebrada
+      if(i%2===0){
+        doc.setFillColor(244,240,232);
+        doc.rect(MARGIN,y,W-MARGIN*2,ROW_H,'F');
+      } else {
+        doc.setFillColor(250,248,244);
+        doc.rect(MARGIN,y,W-MARGIN*2,ROW_H,'F');
+      }
+
+      // Borda esquerda colorida por perfil
+      const bCor = u.role==='admin'?[90,74,154]:[58,122,92];
+      doc.setFillColor(...bCor);
+      doc.rect(MARGIN,y,2,ROW_H,'F');
+
+      // Nome
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8);
+      doc.setTextColor(26,22,18);
+      const nomeStr=u.nome.length>38?u.nome.slice(0,36)+'…':u.nome;
+      doc.text(nomeStr, COL.nome.x+5, y+5.5);
+
+      // Login
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8);
+      doc.setTextColor(122,114,101);
+      doc.text(u.login, COL.login.x+2, y+5.5);
+
+      // Senha
+      doc.setTextColor(160,100,60);
+      doc.text(u.senha||'—', COL.senha.x+2, y+5.5);
+
+      // Badge perfil
+      const pLabel = u.role==='admin'?'Admin':'Usuário';
+      const pCor   = u.role==='admin'?[237,232,247]:[232,245,238];
+      const pBord  = u.role==='admin'?[216,207,238]:[196,229,212];
+      const pTxt   = u.role==='admin'?[90,74,154]:[58,122,92];
+      doc.setFillColor(...pCor);
+      doc.setDrawColor(...pBord);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(COL.perfil.x+1, y+1.5, 22, 5, 2, 2, 'FD');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...pTxt);
+      doc.text(pLabel, COL.perfil.x+12, y+5.2, {align:'center'});
+
+      // Acesso
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7.5);
+      const acesso = u.role==='admin'?'Todas as escolas':(u.escola||'Secretaria');
+      const acessoStr = acesso.length>30?acesso.slice(0,28)+'…':acesso;
+      doc.setTextColor(74,127,168);
+      doc.text(acessoStr, COL.acesso.x+2, y+5.5);
+
+      // Linha divisória sutil
+      doc.setDrawColor(230,225,215);
+      doc.setLineWidth(0.2);
+      doc.line(MARGIN, y+ROW_H, W-MARGIN, y+ROW_H);
+
+      y+=ROW_H;
+    });
+
+    // Rodapé em todas as páginas
+    const totalPages=doc.internal.getNumberOfPages();
+    for(let p=1;p<=totalPages;p++){
+      doc.setPage(p);
+      drawFooter(doc,W,MARGIN,p,totalPages);
     }
 
-    doc.setFillColor(250,248,244); doc.rect(0,0,W,H,'F');
-    doc.setFillColor(244,240,232); doc.rect(0,0,W,HEADER_H,'F');
-    doc.setFillColor(193,123,63);  doc.rect(0,0,3,HEADER_H,'F');
-
-    doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(160,148,133);
-    doc.text('EduMétricas',7,5);
-    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(26,22,18);
-    doc.text(escolaLabel,7,11);
-    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(160,148,133);
-    doc.text(subtitulo, W-MARGIN, 11, {align:'right'});
-
-    if(cobPct!==null){
-      const r=cobPct>=80?58:cobPct>=60?160:140, g=cobPct>=80?122:cobPct>=60?100:80, b=cobPct>=80?92:60;
-      doc.setTextColor(r,g,b); doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
-      doc.text(`Cobertura: ${totalAvaliados.toLocaleString('pt-BR')} / ${totalPrevistos.toLocaleString('pt-BR')} alunos (${cobPct}%)`,W/2, 11, {align:'center'});
+    function drawFooter(doc,W,MARGIN,p,total){
+      doc.setFillColor(244,240,232);
+      doc.rect(0,200,W,10,'F');
+      doc.setFillColor(193,123,63);
+      doc.rect(0,200,W,0.5,'F');
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6);
+      doc.setTextColor(160,148,133);
+      doc.text('EduMétricas — Sistema de Análise Educacional', MARGIN, 205);
+      if(p&&total) doc.text(`Página ${p} de ${total}`, W/2, 205, {align:'center'});
+      doc.text(new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}), W-MARGIN, 205, {align:'right'});
     }
 
-    doc.setFillColor(244,240,232); doc.rect(0,H-FOOTER_H,W,FOOTER_H,'F');
-    doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(160,148,133);
-    doc.text(new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}),W-MARGIN, H-3, {align:'right'});
-
-    const CONTENT_Y = HEADER_H+2;
-    const CONTENT_H = H-HEADER_H-FOOTER_H-3;
-    const slotW     = (W - MARGIN*2 - GAP*2) / 3;
-
-    for(let si=0;si<3;si++){
-      const canvas = captures[si];
-      if(!canvas) continue;
-      const slotX = MARGIN + si*(slotW+GAP);
-      doc.setFillColor(255,255,255);
-      doc.roundedRect(slotX, CONTENT_Y, slotW, CONTENT_H, 3,3,'F');
-      const imgAreaX = slotX+2, imgAreaY = CONTENT_Y+2;
-      const imgAreaW = slotW-4, imgAreaH = CONTENT_H-4;
-      const ratio = Math.min(imgAreaW/canvas.width, imgAreaH/canvas.height);
-      const fW = canvas.width*ratio, fH = canvas.height*ratio;
-      doc.addImage(canvas.toDataURL('image/png'),'PNG',imgAreaX+(imgAreaW-fW)/2,imgAreaY+(imgAreaH-fH)/2,fW,fH);
-    }
-
-    doc.save(`EduMetricas-${new Date().toISOString().slice(0,10)}.pdf`);
-    toast('PDF exportado!','ok');
+    doc.save(`EduMetricas-Usuarios-${new Date().toISOString().slice(0,10)}.pdf`);
+    toast('PDF de usuários exportado!','ok');
   } catch(e){ toast('Erro PDF: '+e.message,'err'); }
-  finally { btn.disabled=false; btn.innerHTML=IC.pdf+' PDF'; }
+  finally { if(btn){ btn.disabled=false; btn.innerHTML=IC.pdf+' PDF'; } }
 }
 
 async function exportPPT(){
@@ -1005,3 +1154,545 @@ async function renderLandingData(){
 
 // Init landing stats on page load
 renderLandingData();
+// ── Modal Perfil (próprio usuário) ──
+function openPerfilModal(){
+  const u = S.user;
+  document.getElementById('perfil-body').innerHTML = `
+    <div style="margin-bottom:10px;">
+      <label class="flabel">Nome</label>
+      <input class="finput" id="p-nome" value="${escHtml(u.nome)}" placeholder="Seu nome completo"/>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="flabel">Login</label>
+      <div style="font-size:13px;color:var(--muted);padding:6px 0">${escHtml(u.login)}</div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--cream3);margin:16px 0"/>
+    <div class="flabel" style="margin-bottom:10px;">Trocar senha <span style="font-size:11px;color:var(--muted2);font-weight:400">(deixe em branco para manter)</span></div>
+    <div style="margin-bottom:10px;">
+      <label class="flabel">Senha atual</label>
+      <div class="pw-wrap">
+        <input class="finput" id="p-atual" type="password" placeholder="Senha atual"/>
+        <button class="pw-toggle" type="button" onclick="togglePw('p-atual',this)">${IC.eye}</button>
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label class="flabel">Nova senha</label>
+      <div class="pw-wrap">
+        <input class="finput" id="p-nova" type="password" placeholder="Mínimo 4 caracteres"/>
+        <button class="pw-toggle" type="button" onclick="togglePw('p-nova',this)">${IC.eye}</button>
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label class="flabel">Confirmar nova senha</label>
+      <div class="pw-wrap">
+        <input class="finput" id="p-confirma" type="password" placeholder="Repita a nova senha"/>
+        <button class="pw-toggle" type="button" onclick="togglePw('p-confirma',this)">${IC.eye}</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost" onclick="closePerfilModal()">Cancelar</button>
+      <button class="btn btn-success" id="btn-salvar-perfil" onclick="salvarPerfil()">${IC.check} Salvar</button>
+    </div>`;
+  document.getElementById('perfil-modal-bg').classList.add('show');
+}
+
+function closePerfilModal(){
+  document.getElementById('perfil-modal-bg').classList.remove('show');
+}
+
+async function salvarPerfil(){
+  const nome     = document.getElementById('p-nome').value.trim();
+  const atual    = document.getElementById('p-atual').value;
+  const nova     = document.getElementById('p-nova').value;
+  const confirma = document.getElementById('p-confirma').value;
+
+  if(!nome){ toast('Informe o nome.','err'); return; }
+
+  const updates = { nome };
+
+  if(atual || nova || confirma){
+    if(atual !== S.user.senha){ toast('Senha atual incorreta.','err'); return; }
+    if(nova.length < 4){ toast('Nova senha deve ter mínimo 4 caracteres.','err'); return; }
+    if(nova !== confirma){ toast('A confirmação não confere.','err'); return; }
+    updates.senha = nova;
+  }
+
+  const btn = document.getElementById('btn-salvar-perfil');
+  btn.disabled = true; btn.innerHTML = `<div class="spinner"></div> Salvando...`;
+
+  const { error } = await sb.from('usuarios').update(updates).eq('id', S.user.id);
+  btn.disabled = false; btn.innerHTML = IC.check + ' Salvar';
+
+  if(error){ toast('Erro: ' + error.message,'err'); return; }
+
+  S.user.nome = nome;
+  if(updates.senha) S.user.senha = updates.senha;
+
+  const idx = S.usuarios.findIndex(u => u.id === S.user.id);
+  if(idx !== -1){
+    S.usuarios[idx].nome = nome;
+    if(updates.senha) S.usuarios[idx].senha = updates.senha;
+  }
+
+  document.getElementById('user-nm').textContent = nome;
+  document.getElementById('user-av').textContent = nome[0].toUpperCase();
+
+  toast('Perfil atualizado!','ok');
+  closePerfilModal();
+}
+
+// ── Editar usuário (admin) ──
+function abrirEditarUsuario(login){
+  const u = S.usuarios.find(x => x.login === login);
+  if(!u) return;
+
+  openConfirmModal(
+    'Editar usuário',
+    `
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+      <div>
+        <label class="flabel">Nome</label>
+        <input class="finput" id="eu-nome" value="${escHtml(u.nome)}" placeholder="Nome completo"/>
+      </div>
+      <div>
+        <label class="flabel">Nova senha <span style="font-size:11px;color:var(--muted2)">(deixe em branco para manter)</span></label>
+        <div class="pw-wrap">
+          <input class="finput" id="eu-senha" type="password" placeholder="Nova senha (opcional)"/>
+          <button class="pw-toggle" type="button" onclick="togglePw('eu-senha',this)">${IC.eye}</button>
+        </div>
+      </div>
+      <div id="eu-escola-wrap">
+        <label class="flabel">Escola vinculada</label>
+        <select class="fsel" id="eu-escola">
+          <option value="">— Secretaria —</option>
+          ${S.escolas.map(e => `<option value="${escHtml(e)}" ${u.escola===e?'selected':''}>${escHtml(e)}</option>`).join('')}
+        </select>
+      </div>
+    </div>`,
+    null,
+    () => salvarEdicaoUsuario(u)
+  );
+
+  // Troca o texto do botão de confirmação
+  setTimeout(() => {
+    const btn = document.getElementById('cm-confirm-btn');
+    if(btn){ btn.textContent = 'Salvar'; btn.style.background = 'var(--green)'; }
+    // Oculta escola se admin
+    if(u.role === 'admin'){
+      const wrap = document.getElementById('eu-escola-wrap');
+      if(wrap) wrap.style.display = 'none';
+    }
+  }, 50);
+}
+
+async function salvarEdicaoUsuario(u){
+  const nome  = document.getElementById('eu-nome')?.value.trim();
+  const senha = document.getElementById('eu-senha')?.value;
+  const escola = u.role === 'admin' ? null : (document.getElementById('eu-escola')?.value || null);
+
+  if(!nome){ toast('Informe o nome.','err'); return; }
+
+  const updates = { nome, escola: escola || null };
+  if(senha){
+    if(senha.length < 4){ toast('Senha deve ter mínimo 4 caracteres.','err'); return; }
+    updates.senha = senha;
+  }
+
+  const btn = document.getElementById('cm-confirm-btn');
+  btn.disabled = true; btn.innerHTML = `<div class="spinner"></div> Salvando...`;
+
+  const { error } = await sb.from('usuarios').update(updates).eq('id', u.id);
+  btn.disabled = false; btn.textContent = 'Salvar';
+
+  if(error){ toast('Erro: ' + error.message,'err'); return; }
+
+  // Atualiza estado local
+  const idx = S.usuarios.findIndex(x => x.id === u.id);
+  if(idx !== -1){
+    S.usuarios[idx].nome   = nome;
+    S.usuarios[idx].escola = escola || null;
+    if(senha) S.usuarios[idx].senha = senha;
+  }
+  // Se o próprio usuário logado se editou
+  if(S.user.id === u.id){
+    S.user.nome   = nome;
+    S.user.escola = escola || null;
+    document.getElementById('user-nm').textContent = nome;
+    document.getElementById('user-av').textContent = nome[0].toUpperCase();
+  }
+
+  toast(`Usuário "${nome}" atualizado!`,'ok');
+  closeConfirmModal();
+  renderUsuarios();
+}
+// ── Carregar Logo ──
+async function carregarLogo(){
+  try{
+    const resp = await fetch('images/logo.png');
+    const blob = await resp.blob();
+    return await new Promise(res=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob); });
+  } catch(_){ return null; }
+}
+
+// ── Cabeçalho institucional reutilizável ──
+function desenharCabecalhoPDF(doc, W, logoDataUrl, titulo, subtitulo){
+  doc.setFillColor(255,255,255);
+  doc.rect(0,0,W,36,'F');
+
+  if(logoDataUrl){
+    doc.addImage(logoDataUrl,'PNG', 10, 4, 22, 22);
+  }
+
+  // Texto abaixo da logo
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(5.5);
+  doc.setTextColor(80,80,80);
+  doc.text('PREFEITURA MUNICIPAL', 21, 28, {align:'center'});
+  doc.text('DE HORIZONTE - CE',   21, 31.5, {align:'center'});
+
+  // Linha vertical separadora
+  doc.setDrawColor(180,180,180);
+  doc.setLineWidth(0.4);
+  doc.line(38, 5, 38, 31);
+
+  // Título principal
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.setTextColor(26,26,26);
+  doc.text('PREFEITURA MUNICIPAL DE HORIZONTE', 44, 12);
+
+  // Subtítulo 1 (nome do sistema)
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(40,40,40);
+  doc.text(titulo, 44, 20);
+
+  // Subtítulo 2 (descrição do relatório)
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(120,120,120);
+  doc.text(subtitulo, 44, 27);
+
+  // Linha verde
+  doc.setFillColor(34,100,34);
+  doc.rect(0,33,W,1.2,'F');
+  // Linha dourada
+  doc.setFillColor(193,123,63);
+  doc.rect(0,34.2,W,0.5,'F');
+}
+
+// ── PDF Analytics ──
+async function exportPDF(){
+  const btn=document.getElementById('btn-export-pdf');
+  btn.disabled=true; btn.innerHTML=`<div class="spinner spinner-dark"></div> Gerando PDF...`;
+  try{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const W=297,H=210;
+    const FOOTER_H=9,MARGIN=10,GAP=5;
+
+    const escolaSel  = document.getElementById('a-escola')?.value||'';
+    const serieSel   = document.getElementById('a-serie')?.value||'';
+    const compSel    = normComp(document.getElementById('a-componente')?.value||'');
+    const anoSel     = document.getElementById('a-ano')?.value||'';
+    const escolaLabel= escolaSel||'Todas as escolas';
+    const subtitulo  = [serieSel,compSel,anoSel].filter(Boolean).join(' · ')||'Todos os filtros';
+
+    const regsScope = scopeRegistros(S.registros).filter(r=>
+      (!escolaSel||r.escola===escolaSel)&&(!serieSel||r.serie===serieSel)&&
+      (!compSel||normComp(r.componente)===compSel)&&(!anoSel||r.ano===anoSel));
+    const totalPrevistos = totalAlunosPrevistos(regsScope);
+    const totalAvaliados = totalAlunosAvaliados(regsScope);
+    const cobPct = totalPrevistos>0 ? Math.round(totalAvaliados/totalPrevistos*100) : null;
+
+    // Captura gráficos
+    const chartCards = Array.from(document.querySelectorAll('.chart-card'));
+    const captures = [];
+    for(let i=0;i<3;i++){
+      const card=chartCards[i];
+      if(!card){ captures.push(null); continue; }
+      const canvas=await html2canvas(card,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false});
+      captures.push(canvas);
+    }
+
+    // Logo
+    const logoDataUrl = await carregarLogo();
+
+    // Fundo geral
+    doc.setFillColor(250,248,244);
+    doc.rect(0,0,W,H,'F');
+
+    // Cabeçalho institucional
+    desenharCabecalhoPDF(doc, W, logoDataUrl,
+      'EDUMÉTRICAS — SISTEMA DE ANÁLISE EDUCACIONAL',
+      'RELATÓRIO DE PROFICIÊNCIA COMPARATIVA · ' + escolaLabel.toUpperCase()
+    );
+
+    // Cobertura (canto direito do cabeçalho)
+    if(cobPct!==null){
+      const cor = cobPct>=80?[34,120,60]:cobPct>=60?[160,100,20]:[160,40,40];
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...cor);
+      doc.text(
+        `Cobertura: ${totalAvaliados.toLocaleString('pt-BR')} / ${totalPrevistos.toLocaleString('pt-BR')} alunos (${cobPct}%)`,
+        W-MARGIN, 27, {align:'right'}
+      );
+    }
+
+    // Filtros aplicados (linha abaixo do cabeçalho)
+    doc.setFillColor(244,240,232);
+    doc.rect(0,35,W,8,'F');
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120,114,101);
+    doc.text(`Filtros: ${subtitulo}`, MARGIN, 40);
+    doc.text(new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}), W-MARGIN, 40, {align:'right'});
+
+    // Footer
+    doc.setFillColor(244,240,232);
+    doc.rect(0,H-FOOTER_H,W,FOOTER_H,'F');
+    doc.setFillColor(34,100,34);
+    doc.rect(0,H-FOOTER_H,W,0.6,'F');
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(6);
+    doc.setTextColor(120,120,120);
+    doc.text('Prefeitura Municipal de Horizonte — EduMétricas', MARGIN, H-3);
+    doc.setTextColor(193,123,63);
+    doc.text('2024 vs 2025', W/2, H-3, {align:'center'});
+    doc.setTextColor(120,120,120);
+    doc.text(new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}), W-MARGIN, H-3, {align:'right'});
+
+    // Cards dos gráficos
+    const CONTENT_Y = 45;
+    const CONTENT_H = H - 45 - FOOTER_H - 3;
+    const slotW     = (W - MARGIN*2 - GAP*2) / 3;
+    const labels    = ['Nível Socioeconômico','Cor / Raça','Sexo'];
+    const cardCores = [[34,100,34],[193,123,63],[74,127,168]];
+
+    for(let si=0;si<3;si++){
+      const canvas = captures[si];
+      const slotX  = MARGIN + si*(slotW+GAP);
+
+      // Sombra simulada
+      doc.setFillColor(210,205,195);
+      doc.roundedRect(slotX+1,CONTENT_Y+1,slotW,CONTENT_H,4,4,'F');
+
+      // Card branco
+      doc.setFillColor(255,255,255);
+      doc.roundedRect(slotX,CONTENT_Y,slotW,CONTENT_H,4,4,'F');
+
+      // Faixa topo colorida
+      doc.setFillColor(...cardCores[si]);
+      doc.roundedRect(slotX,CONTENT_Y,slotW,7,4,4,'F');
+      doc.rect(slotX,CONTENT_Y+3,slotW,4,'F');
+
+      // Label
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7);
+      doc.setTextColor(255,255,255);
+      doc.text(labels[si], slotX+slotW/2, CONTENT_Y+5, {align:'center'});
+
+      // Imagem
+      if(canvas){
+        const imgAreaX=slotX+3, imgAreaY=CONTENT_Y+9;
+        const imgAreaW=slotW-6, imgAreaH=CONTENT_H-11;
+        const ratio=Math.min(imgAreaW/canvas.width,imgAreaH/canvas.height);
+        const fW=canvas.width*ratio, fH=canvas.height*ratio;
+        doc.addImage(canvas.toDataURL('image/png'),'PNG',
+          imgAreaX+(imgAreaW-fW)/2, imgAreaY+(imgAreaH-fH)/2, fW, fH);
+      } else {
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(8);
+        doc.setTextColor(160,148,133);
+        doc.text('Sem dados', slotX+slotW/2, CONTENT_Y+CONTENT_H/2, {align:'center'});
+      }
+    }
+
+    doc.save(`EduMetricas-Analise-${new Date().toISOString().slice(0,10)}.pdf`);
+    toast('PDF exportado!','ok');
+  } catch(e){ toast('Erro PDF: '+e.message,'err'); }
+  finally { btn.disabled=false; btn.innerHTML=IC.pdf+' PDF'; }
+}
+
+// ── PDF Usuários ──
+async function exportUsuariosPDF(){
+  const btn=document.getElementById('btn-export-usr-pdf');
+  if(btn){ btn.disabled=true; btn.innerHTML=`<div class="spinner spinner-dark"></div> Gerando...`; }
+  try{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const W=297, MARGIN=14;
+
+    const logoDataUrl = await carregarLogo();
+
+    const COL = {
+      nome:   {x:MARGIN},
+      login:  {x:MARGIN+82},
+      senha:  {x:MARGIN+130},
+      perfil: {x:MARGIN+172},
+      acesso: {x:MARGIN+202}
+    };
+
+    function drawFooter(p,total){
+      doc.setFillColor(244,240,232);
+      doc.rect(0,200,W,10,'F');
+      doc.setFillColor(34,100,34);
+      doc.rect(0,200,W,0.6,'F');
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6);
+      doc.setTextColor(120,120,120);
+      doc.text('Prefeitura Municipal de Horizonte — EduMétricas', MARGIN, 206);
+      if(p&&total) doc.text(`Página ${p} de ${total}`, W/2, 206, {align:'center'});
+      doc.text(new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}), W-MARGIN, 206, {align:'right'});
+    }
+
+    function drawTableHeader(y){
+      doc.setFillColor(40,36,30);
+      doc.rect(MARGIN,y,W-MARGIN*2,8,'F');
+      doc.setFillColor(34,100,34);
+      doc.rect(MARGIN,y,3,8,'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(193,123,63);
+      doc.text('NOME',   COL.nome.x+5,   y+5.5);
+      doc.setTextColor(160,148,133);
+      doc.text('LOGIN',  COL.login.x+2,  y+5.5);
+      doc.text('SENHA',  COL.senha.x+2,  y+5.5);
+      doc.text('PERFIL', COL.perfil.x+2, y+5.5);
+      doc.text('ACESSO', COL.acesso.x+2, y+5.5);
+    }
+
+    function drawHeader(isFirst){
+      doc.setFillColor(255,255,255);
+      doc.rect(0,0,W,isFirst?50:36,'F');
+
+      desenharCabecalhoPDF(doc, W, logoDataUrl,
+        'EDUMÉTRICAS — SISTEMA DE ANÁLISE EDUCACIONAL',
+        'RELATÓRIO DE USUÁRIOS CADASTRADOS'
+      );
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(120,120,120);
+      doc.text(
+        new Date().toLocaleDateString('pt-BR',{year:'numeric',month:'long',day:'numeric'}),
+        W-MARGIN, 27, {align:'right'}
+      );
+
+      if(isFirst){
+        const totalAdmin  = S.usuarios.filter(u=>u.role==='admin').length;
+        const totalEscola = S.usuarios.filter(u=>u.role!=='admin'&&u.escola).length;
+        const totalSec    = S.usuarios.filter(u=>u.role!=='admin'&&!u.escola).length;
+        const chips=[
+          {label:'Total',      val:S.usuarios.length, cor:[74,127,168]},
+          {label:'Admins',     val:totalAdmin,         cor:[90,74,154]},
+          {label:'Por escola', val:totalEscola,        cor:[34,120,60]},
+          {label:'Secretaria', val:totalSec,           cor:[160,100,40]},
+        ];
+        let cx=MARGIN;
+        chips.forEach(c=>{
+          doc.setFillColor(245,243,238);
+          doc.setDrawColor(...c.cor);
+          doc.setLineWidth(0.5);
+          doc.roundedRect(cx,36,42,12,2,2,'FD');
+          doc.setFillColor(...c.cor);
+          doc.roundedRect(cx,36,3,12,1,1,'F');
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(12);
+          doc.setTextColor(...c.cor);
+          doc.text(String(c.val), cx+23, 44, {align:'center'});
+          doc.setFont('helvetica','normal');
+          doc.setFontSize(5.5);
+          doc.setTextColor(120,120,120);
+          doc.text(c.label, cx+23, 46.5, {align:'center'});
+          cx+=46;
+        });
+      }
+    }
+
+    // ── Página 1 ──
+    drawHeader(true);
+    let y=52;
+    drawTableHeader(y);
+    y+=8;
+
+    const PAGE_H=197, ROW_H=8;
+
+    S.usuarios.forEach((u,i)=>{
+      if(y+ROW_H>PAGE_H){
+        drawFooter();
+        doc.addPage();
+        drawHeader(false);
+        y=40;
+        drawTableHeader(y);
+        y+=8;
+      }
+
+      // Zebra
+      doc.setFillColor(i%2===0?244:250, i%2===0?240:248, i%2===0?232:244);
+      doc.rect(MARGIN,y,W-MARGIN*2,ROW_H,'F');
+
+      // Borda lateral colorida por perfil
+      doc.setFillColor(...(u.role==='admin'?[90,74,154]:[34,120,60]));
+      doc.rect(MARGIN,y,2,ROW_H,'F');
+
+      // Nome
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8);
+      doc.setTextColor(26,22,18);
+      const nomeStr=u.nome.length>38?u.nome.slice(0,36)+'…':u.nome;
+      doc.text(nomeStr, COL.nome.x+5, y+5.5);
+
+      // Login
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8);
+      doc.setTextColor(122,114,101);
+      doc.text(u.login, COL.login.x+2, y+5.5);
+
+      // Senha
+      doc.setTextColor(160,100,60);
+      doc.text(u.senha||'—', COL.senha.x+2, y+5.5);
+
+      // Badge perfil
+      const pLabel = u.role==='admin'?'Admin':'Usuário';
+      const pCor   = u.role==='admin'?[237,232,247]:[232,245,238];
+      const pBord  = u.role==='admin'?[216,207,238]:[196,229,212];
+      const pTxt   = u.role==='admin'?[90,74,154]:[34,120,60];
+      doc.setFillColor(...pCor);
+      doc.setDrawColor(...pBord);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(COL.perfil.x+1,y+1.5,22,5,2,2,'FD');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...pTxt);
+      doc.text(pLabel, COL.perfil.x+12, y+5.2, {align:'center'});
+
+      // Acesso
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(74,127,168);
+      const acesso=u.role==='admin'?'Todas as escolas':(u.escola||'Secretaria');
+      const acessoStr=acesso.length>30?acesso.slice(0,28)+'…':acesso;
+      doc.text(acessoStr, COL.acesso.x+2, y+5.5);
+
+      // Linha divisória
+      doc.setDrawColor(225,220,210);
+      doc.setLineWidth(0.2);
+      doc.line(MARGIN,y+ROW_H,W-MARGIN,y+ROW_H);
+
+      y+=ROW_H;
+    });
+
+    // Rodapé em todas as páginas
+    const totalPages=doc.internal.getNumberOfPages();
+    for(let p=1;p<=totalPages;p++){
+      doc.setPage(p);
+      drawFooter(p,totalPages);
+    }
+
+    doc.save(`EduMetricas-Usuarios-${new Date().toISOString().slice(0,10)}.pdf`);
+    toast('PDF de usuários exportado!','ok');
+  } catch(e){ toast('Erro PDF: '+e.message,'err'); }
+  finally { if(btn){ btn.disabled=false; btn.innerHTML=IC.pdf+' PDF'; } }
+}
